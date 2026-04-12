@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tierlist - Rate the Event</title>
+    <style>
+        /* Exact layout and spacing matching the Wix original */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+            color: #222;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 16px;
+        }
+
+        .header-star {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        .header-star img {
+            width: 100%;
+            height: 100%;
+            animation: rotate-star 5.2s linear infinite;
+        }
+
+        @keyframes rotate-star {
+            from { transform: rotateY(0deg); }
+            to { transform: rotateY(360deg); }
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 80px 40px 100px 40px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: normal;
+            margin: 0;
+            margin-bottom: 50px;
+            color: #333;
+        }
+
+        /* Ratings Section */
+        .rating-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .rating-label {
+            font-size: 16px;
+        }
+
+        .star-rating {
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 15px;
+        }
+
+        .star-rating input {
+            display: none;
+        }
+
+        .star-rating label {
+            color: transparent;
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+            position: relative;
+            /* Empty SVG star equivalent using text-stroke */
+            -webkit-text-stroke: 1px #333;
+        }
+
+        .star-rating label:before {
+            content: '★';
+        }
+
+        .star-rating label:hover,
+        .star-rating label:hover ~ label,
+        .star-rating input:checked ~ label {
+            color: #FFD700;
+            -webkit-text-stroke: 1px #FFD700;
+        }
+
+        /* Gap before radio buttons */
+        .spacer {
+            margin-top: 60px;
+            margin-bottom: 60px;
+        }
+
+        .question-group {
+            margin-bottom: 30px;
+        }
+
+        .question-title {
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .radio-option input[type="radio"] {
+            margin-right: 12px;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        /* Large textarea */
+        .textarea-group {
+            margin-bottom: 40px;
+            margin-top: 50px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 250px;
+            padding: 15px;
+            border: 1px solid #777;
+            border-radius: 0;
+            background-color: transparent;
+            font-family: inherit;
+            font-size: inherit;
+            box-sizing: border-box;
+            resize: none;
+        }
+
+        textarea::placeholder {
+            color: #777;
+            opacity: 1;
+        }
+
+        /* Input Fields */
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        input[type="text"],
+        input[type="email"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #777;
+            border-radius: 0;
+            background-color: transparent;
+            font-family: inherit;
+            font-size: inherit;
+            box-sizing: border-box;
+        }
+
+        input::placeholder {
+            color: #999;
+        }
+
+        /* Submit Button */
+        .submit-container {
+            text-align: center;
+            margin-top: 60px;
+        }
+
+        .btn-submit {
+            background-color: transparent;
+            border: 1px solid #777;
+            padding: 10px 45px;
+            font-family: inherit;
+            font-size: 16px;
+            color: #222;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-submit:hover {
+            background-color: #f5f5f5;
+        }
+
+        /* Font change effect upon submit click state */
+        .btn-submit:active, .font-changed {
+            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+            color: red !important;
+        }
+        
+        .success-message {
+            display: none;
+            text-align: center;
+            margin-top: 60px;
+            font-size: 28px;
+            font-family: 'Snell Roundhand', 'Brush Script MT', 'Lucida Handwriting', cursive;
+            color: #333;
+        }
+
+        @media (max-width: 600px) {
+            .rating-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            .star-rating label {
+                font-size: 36px;
+            }
+        }
+    </style>
+    <script src="db.js"></script>
+</head>
+<body>
+
+<!-- Fixed rotating star link -->
+<a href="star.html" class="header-star">
+    <img src="star.png" alt="Star">
+</a>
+
+<div class="container">
+    <h1 id="showTitle">Loading Show...</h1>
+
+    <form id="tierlistForm">
+        <!-- 5-Star Ratings -->
+        <div class="rating-row">
+            <div class="rating-label">Zufriedenheit mit dieser Veranstaltung</div>
+            <div class="star-rating">
+                <input type="radio" id="sat-5" name="satisfaction" value="5"><label for="sat-5"></label>
+                <input type="radio" id="sat-4" name="satisfaction" value="4"><label for="sat-4"></label>
+                <input type="radio" id="sat-3" name="satisfaction" value="3"><label for="sat-3"></label>
+                <input type="radio" id="sat-2" name="satisfaction" value="2"><label for="sat-2"></label>
+                <input type="radio" id="sat-1" name="satisfaction" value="1"><label for="sat-1"></label>
+            </div>
+        </div>
+
+        <div class="rating-row">
+            <div class="rating-label">Relevance</div>
+            <div class="star-rating">
+                <input type="radio" id="rel-5" name="relevance" value="5"><label for="rel-5"></label>
+                <input type="radio" id="rel-4" name="relevance" value="4"><label for="rel-4"></label>
+                <input type="radio" id="rel-3" name="relevance" value="3"><label for="rel-3"></label>
+                <input type="radio" id="rel-2" name="relevance" value="2"><label for="rel-2"></label>
+                <input type="radio" id="rel-1" name="relevance" value="1"><label for="rel-1"></label>
+            </div>
+        </div>
+
+        <div class="rating-row">
+            <div class="rating-label">Instagramable</div>
+            <div class="star-rating">
+                <input type="radio" id="inst-5" name="instagramable" value="5"><label for="inst-5"></label>
+                <input type="radio" id="inst-4" name="instagramable" value="4"><label for="inst-4"></label>
+                <input type="radio" id="inst-3" name="instagramable" value="3"><label for="inst-3"></label>
+                <input type="radio" id="inst-2" name="instagramable" value="2"><label for="inst-2"></label>
+                <input type="radio" id="inst-1" name="instagramable" value="1"><label for="inst-1"></label>
+            </div>
+        </div>
+
+        <div class="rating-row">
+            <div class="rating-label">Sellable</div>
+            <div class="star-rating">
+                <input type="radio" id="sell-5" name="sellable" value="5"><label for="sell-5"></label>
+                <input type="radio" id="sell-4" name="sellable" value="4"><label for="sell-4"></label>
+                <input type="radio" id="sell-3" name="sellable" value="3"><label for="sell-3"></label>
+                <input type="radio" id="sell-2" name="sellable" value="2"><label for="sell-2"></label>
+                <input type="radio" id="sell-1" name="sellable" value="1"><label for="sell-1"></label>
+            </div>
+        </div>
+
+        <div class="rating-row">
+            <div class="rating-label">Cool</div>
+            <div class="star-rating">
+                <input type="radio" id="cool-5" name="cool" value="5"><label for="cool-5"></label>
+                <input type="radio" id="cool-4" name="cool" value="4"><label for="cool-4"></label>
+                <input type="radio" id="cool-3" name="cool" value="3"><label for="cool-3"></label>
+                <input type="radio" id="cool-2" name="cool" value="2"><label for="cool-2"></label>
+                <input type="radio" id="cool-1" name="cool" value="1"><label for="cool-1"></label>
+            </div>
+        </div>
+
+        <div class="spacer"></div>
+
+        <!-- Binary/Grid Questions -->
+        <div class="question-group">
+            <div class="question-title">Gallery Art</div>
+            <label class="radio-option"><input type="radio" name="galleryArt" value="yes"> Yes</label>
+            <label class="radio-option"><input type="radio" name="galleryArt" value="no"> No</label>
+        </div>
+
+        <div class="question-group" style="margin-top: 40px;">
+            <div class="question-title">Was ist besonders positiv aufgefallen?</div>
+            <label class="radio-option"><input type="radio" name="positive" value="inhalte"> Inhalte</label>
+            <label class="radio-option"><input type="radio" name="positive" value="personen"> Personen</label>
+            <label class="radio-option"><input type="radio" name="positive" value="essen"> Essen</label>
+            <label class="radio-option"><input type="radio" name="positive" value="musik"> Musik</label>
+        </div>
+
+        <!-- Textarea at bottom left exactly like wix -->
+        <div class="textarea-group">
+            <textarea name="comments" placeholder="Comments, Notes, Thoughts (Will show AI summarized)"></textarea>
+        </div>
+
+        <div class="input-group">
+            <label>E-Mail *</label>
+            <input type="email" name="email" placeholder="E-Mail-Adress" required>
+        </div>
+
+        <div class="input-group">
+            <label>Name *</label>
+            <input type="text" name="name" placeholder="Add your name" required>
+        </div>
+
+        <div class="submit-container" id="submitContainer">
+            <button type="submit" class="btn-submit" id="submitBtn">Rate!</button>
+        </div>
+        
+        <div class="success-message" id="successMessage">
+            Review submitted!
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        let currentShow = null;
+
+        if (token) {
+            currentShow = window.DB.getShowByToken(token);
+        }
+
+        const titleEl = document.getElementById('showTitle');
+        const form = document.getElementById('tierlistForm');
+
+        if (!currentShow) {
+            titleEl.innerText = "Invalid or Missing Voting Link";
+            titleEl.style.color = "red";
+            form.style.display = 'none';
+            titleEl.insertAdjacentHTML('afterend', '<p>You need a valid invitation link to rate a show. If you received an email, please click the exact link provided.</p>');
+            
+            if(!token) {
+                 titleEl.insertAdjacentHTML('afterend', '<p style="color:#777; font-size: 14px;"><i>[Demo Mode: No token found. Redirecting to a demo show in 2s...]</i></p>');
+                 setTimeout(() => {
+                     const url = new URL(window.location.href);
+                     url.searchParams.set('token', 'demo123');
+                     window.location.href = url.toString();
+                 }, 2000);
+            }
+        } else {
+            titleEl.innerText = currentShow.title;
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!currentShow) return;
+
+            const formData = new FormData(form);
+            const voteData = { showId: currentShow.id };
+            
+            // Extract form values
+            for (let [key, value] of formData.entries()) {
+                voteData[key] = value;
+            }
+            
+            // Validate that star ratings are checked
+            const requiredStars = ['satisfaction', 'relevance', 'instagramable', 'sellable', 'cool'];
+            const missing = requiredStars.find(cat => !voteData[cat]);
+            if (missing) {
+                alert('Please give a star rating for all 5 categories!');
+                return;
+            }
+
+            // Write to mock DB
+            window.DB.addVote(voteData);
+            
+            const btnContainer = document.getElementById('submitContainer');
+            const successMsg = document.getElementById('successMessage');
+            
+            btnContainer.style.display = 'none';
+            successMsg.style.display = 'block';
+            form.reset();
+            
+            setTimeout(() => {
+                btnContainer.style.display = 'block';
+                successMsg.style.display = 'none';
+                window.location.href = 'ratings.html';
+            }, 3000);
+        });
+    });
+</script>
+
+</body>
+</html>

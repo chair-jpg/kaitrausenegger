@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landing - Star</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fff;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        .star-link {
+            display: block;
+            cursor: pointer;
+        }
+
+        .rotating-star {
+            width: 300px;
+            height: auto;
+            animation: rotate-star 5.2s linear infinite;
+        }
+
+        @keyframes rotate-star {
+            from {
+                transform: rotateY(0deg);
+            }
+            to {
+                transform: rotateY(360deg);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .rotating-star {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="ratings.html" class="star-link">
+            <img src="star.png" alt="Rotating Star" class="rotating-star">
+        </a>
+    </div>
+</body>
+</html>

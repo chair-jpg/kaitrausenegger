@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Manage Shows</title>
+    <script src="db.js"></script>
+    <style>
+        body { margin: 0; padding: 50px; font-family: "Courier New", Courier, monospace; font-size: 14px; background: #fafafa; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #ddd; }
+        h1, h2 { font-family: "Times New Roman", Times, serif; font-weight: normal; margin-top: 0; }
+        
+        .form-group { margin-bottom: 20px; }
+        input[type="text"] { width: 100%; padding: 10px; font-family: inherit; border: 1px solid #ccc; box-sizing: border-box; }
+        button { padding: 10px 20px; background: #fff; border: 1px solid #333; cursor: pointer; font-family: inherit; }
+        button:hover { background: #f0f0f0; }
+
+        .show-list { margin-top: 40px; }
+        .show-item { padding: 15px; border: 1px solid #eee; margin-bottom: 10px; background: #fbfbfb; }
+        .show-title { font-weight: bold; font-family: "Times New Roman", Times, serif; font-size: 18px; margin-bottom: 10px;}
+        .link-box { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px; border: 1px solid #ddd;}
+        input.link-input { border: none; background: transparent; flex-grow: 1; outline: none; color: #666; font-size: 12px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Control Panel</h1>
+        <p><a href="star.html">← Back to Home</a> | <a href="ratings.html">View Leaderboard</a></p>
+        <hr>
+
+        <h2>Create New Show</h2>
+        <form id="addShowForm">
+            <div class="form-group">
+                <input type="text" id="showTitleInput" placeholder="e.g., (Solo) Artist Name - Exhibition - Gallery" required>
+            </div>
+            <button type="submit">Generate Voting Link</button>
+        </form>
+
+        <div class="show-list">
+            <h2>Active Shows</h2>
+            <div id="showsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        function renderShows() {
+            const container = document.getElementById('showsContainer');
+            const shows = window.DB.getShows().reverse(); // newest first
+            container.innerHTML = '';
+
+            shows.forEach(show => {
+                const link = `${window.location.origin}${window.location.pathname.replace('admin.html', '')}tierlist.html?token=${show.token}`;
+                
+                const div = document.createElement('div');
+                div.className = 'show-item';
+                div.innerHTML = `
+                    <div class="show-title">${show.title}</div>
+                    <div>Share this link with your curated guests:</div>
+                    <div class="link-box">
+                        <input type="text" class="link-input" value="${link}" readonly onclick="this.select()">
+                        <button onclick="navigator.clipboard.writeText('${link}').then(()=>alert('Copied!'))">Copy</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        document.getElementById('addShowForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('showTitleInput');
+            if (input.value.trim()) {
+                window.DB.addShow(input.value.trim());
+                input.value = '';
+                renderShows();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', renderShows);
+    </script>
+</body>
+</html>
