@@ -375,15 +375,16 @@
                 voteData[key] = value;
             }
             
-            // Validate that star ratings are checked
+            // Ensure values exist so it never blocks or crashes
             const requiredStars = ['satisfaction', 'relevance', 'instagramable', 'sellable', 'cool'];
-            const missing = requiredStars.find(cat => !voteData[cat]);
-            if (missing) {
-                alert('Please give a star rating for all 5 categories!');
-                return;
+            for (let cat of requiredStars) {
+                if (!voteData[cat]) {
+                    console.warn("Missing star rating for", cat, "- defaulting to 3");
+                    voteData[cat] = "3"; 
+                }
             }
 
-            // Write to mock DB
+            console.log("Writing vote to DB:", voteData);
             window.DB.addVote(voteData);
             
             const btnContainer = document.getElementById('submitContainer');
@@ -396,8 +397,9 @@
             setTimeout(() => {
                 btnContainer.style.display = 'block';
                 successMsg.style.display = 'none';
-                window.location.href = 'ratings.html';
-            }, 3000);
+                console.log("Redirecting to leaderboard...");
+                window.location.href = 'ratings.html?updated=' + Date.now();
+            }, 2000);
         });
     });
 </script>
