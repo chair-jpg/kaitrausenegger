@@ -51,9 +51,10 @@
     td {
       padding-right: 20px;
       white-space: nowrap;
+      vertical-align: top;
+      /* Ensures text aligns with top of ASCII */
     }
 
-    /* Description column can wrap if needed */
     td:last-child {
       white-space: normal;
       width: 100%;
@@ -62,6 +63,63 @@
     .type-icon {
       display: inline-block;
       width: 40px;
+    }
+
+    .ascii-container {
+      overflow-x: auto;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      body {
+        padding: 20px;
+      }
+
+      table,
+      thead,
+      tbody,
+      th,
+      td,
+      tr {
+        display: block;
+      }
+
+      thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+      }
+
+      tr {
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+      }
+
+      tr:last-child {
+        border-bottom: none;
+      }
+
+      td {
+        border: none;
+        padding: 0 0 5px 0;
+        white-space: normal;
+      }
+
+      td:first-child {
+        font-weight: bold;
+        font-size: 14px;
+      }
+
+      td:not(:first-child):not(.ascii-cell):not(:last-child)::before {
+        content: attr(data-label) ": ";
+        color: #555;
+        font-weight: normal;
+      }
+
+      .hr-row {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -81,41 +139,26 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
+      <tr class="hr-row">
         <td colspan="4">
           <hr>
         </td>
       </tr>
       <tr>
-        <td><span class="type-icon">[DIR]</span> <a href="index.html">_home/</a></td>
-        <td>2025-07-12 18:16</td>
-        <td>-</td>
-        <td>ROOT</td>
-      </tr>
-
-      <tr>
-        <td colspan="4">
-        </td>
+        <td data-label="Name"><span class="type-icon">[DIR]</span> <a href="index.html">_home/</a></td>
+        <td data-label="Date">2025-07-12 18:16</td>
+        <td data-label="Size">-</td>
+        <td data-label="Description">ROOT</td>
       </tr>
       <tr>
-        <td><span class="type-icon">[PDF]</span> <a href="Portfolio_Kai_Philip_Trausenegger_July_2025_small.pdf"
-            download>_portfolio_july2025.pdf</a></td>
-        <td>2025-07-12 18:16</td>
-        <td>17M</td>
-        <td>
-
-          <pre style="font-family: monospace; margin: 20px 0; line-height: 1.2;">
-
-
-
-
-
-
-
-
-
-
-
+        <td data-label="Name"><span class="type-icon">[PDF]</span> <a
+            href="Portfolio_Kai_Philip_Trausenegger_July_2025_small.pdf" download>_portfolio_july2025.pdf</a></td>
+        <td data-label="Date">2025-07-12 18:16</td>
+        <td data-label="Size">17M</td>
+        <td data-label="Description">
+          PORTFOLIO<br>
+          <div class="ascii-container">
+            <pre style="font-family: monospace; margin: 20px 0 0 0; line-height: 1.2;">
 
               ,,))))))));,
              __)))))))))))))),
@@ -136,30 +179,29 @@
                 `\_|                   (,~~  
                                         \~\
                                          ~~
-</pre>
+            </pre>
+          </div>
         </td>
       </tr>
-
       <tr>
-        <td><span class="type-icon">[TXT]</span> <a href="cv.html">_cv_exhibitions.html</a></td>
-        <td>2025-07-12 18:16</td>
-        <td>6k</td>
-        <td>CV</td>
+        <td data-label="Name"><span class="type-icon">[TXT]</span> <a href="cv.html">_cv_exhibitions.html</a></td>
+        <td data-label="Date">2025-07-12 18:16</td>
+        <td data-label="Size">6k</td>
+        <td data-label="Description">CV</td>
       </tr>
       <tr>
-        <td><span class="type-icon">[TXT]</span> <a href="contact.html">_contact_info.html</a></td>
-        <td>2025-07-12 18:16</td>
-        <td>1k</td>
-        <td>CONTACT</td>
+        <td data-label="Name"><span class="type-icon">[TXT]</span> <a href="contact.html">_contact_info.html</a></td>
+        <td data-label="Date">2025-07-12 18:16</td>
+        <td data-label="Size">1k</td>
+        <td data-label="Description">CONTACT</td>
       </tr>
-      <tr>
+      <tr class="hr-row">
         <td colspan="4">
           <hr>
         </td>
       </tr>
     </tbody>
   </table>
-
 
 </body>
 
