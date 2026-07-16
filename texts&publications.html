@@ -88,12 +88,87 @@
         Isabelle Andriessen, Andreas Werner, Chin Tsao, Tim Enthoven, Kai Philip Trausenegger, Ado/aptive<br><br>
         Exhibition Photography: Jorit Aust
       </p>
-      <div style="width: 100%; height: 80vh; border: 1px solid #000; margin-top: 15px;">
-        <iframe src="https://docs.google.com/gview?url=https://kaitrausenegger.com/SPECULATIVE-SPECULUM_Publication-1-Conpressed_Medium_compressed.pdf&embedded=true" style="width:100%; height:100%;" frameborder="0"></iframe>
+      <div style="width: 100%; border: 1px solid #000; margin-top: 15px;">
+        <div style="background: #f9f9f9; padding: 10px; text-align: center; border-bottom: 1px solid #000; display: flex; justify-content: space-between; align-items: center;">
+          <button id="prev-page" style="padding: 8px 15px; cursor: pointer; background: #000; color: #fff; border: none; font-weight: bold;">&larr; Previous</button>
+          <span style="font-weight: bold;">Page <span id="page-num"></span> / <span id="page-count"></span></span>
+          <button id="next-page" style="padding: 8px 15px; cursor: pointer; background: #000; color: #fff; border: none; font-weight: bold;">Next &rarr;</button>
+        </div>
+        <canvas id="pdf-canvas" style="width: 100%; height: auto; display: block; margin: 0 auto;"></canvas>
       </div>
       <p style="margin-top: 10px; font-size: 14px; text-align: center;">
         <a href="SPECULATIVE-SPECULUM_Publication-1-Conpressed_Medium_compressed.pdf" target="_blank" style="color: blue;">[ Direct Download / Open in Browser ]</a>
       </p>
+
+      <!-- PDF.js Library -->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+      <script>
+        var url = 'SPECULATIVE-SPECULUM_Publication-1-Conpressed_Medium_compressed.pdf';
+        var pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        var pdfDoc = null,
+            pageNum = 1,
+            pageRendering = false,
+            pageNumPending = null,
+            scale = 1.5,
+            canvas = document.getElementById('pdf-canvas'),
+            ctx = canvas.getContext('2d');
+
+        function renderPage(num) {
+          pageRendering = true;
+          pdfDoc.getPage(num).then(function(page) {
+            var viewport = page.getViewport({scale: scale});
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            var renderContext = {
+              canvasContext: ctx,
+              viewport: viewport
+            };
+            var renderTask = page.render(renderContext);
+
+            renderTask.promise.then(function() {
+              pageRendering = false;
+              if (pageNumPending !== null) {
+                renderPage(pageNumPending);
+                pageNumPending = null;
+              }
+            });
+          });
+          document.getElementById('page-num').textContent = num;
+        }
+
+        function queueRenderPage(num) {
+          if (pageRendering) {
+            pageNumPending = num;
+          } else {
+            renderPage(num);
+          }
+        }
+
+        document.getElementById('prev-page').addEventListener('click', function() {
+          if (pageNum <= 1) return;
+          pageNum--;
+          queueRenderPage(pageNum);
+        });
+
+        document.getElementById('next-page').addEventListener('click', function() {
+          if (pageNum >= pdfDoc.numPages) return;
+          pageNum++;
+          queueRenderPage(pageNum);
+        });
+
+        pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+          pdfDoc = pdfDoc_;
+          document.getElementById('page-count').textContent = pdfDoc.numPages;
+          renderPage(pageNum);
+        }).catch(function(error) {
+          console.error('Error loading PDF:', error);
+          ctx.font = "16px Arial";
+          ctx.fillText("Failed to load PDF.", 20, 50);
+        });
+      </script>
     </div>
   </section>
 
