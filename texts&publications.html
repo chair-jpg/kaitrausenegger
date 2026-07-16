@@ -96,46 +96,39 @@
           position: relative;
         }
 
-        /* ── Minimalist Toolbar (White) ── */
+        /* ── Minimalist Toolbar (Below Viewer) ── */
         #pdf-toolbar {
           display: flex;
           align-items: center;
-          justify-content: flex-end;
-          gap: 6px;
-          padding: 8px 0;
-          background: #fff;
-          position: sticky;
-          top: 0;
-          z-index: 10;
+          justify-content: flex-start;
+          gap: 12px;
+          padding: 10px 0;
+          background: transparent;
           user-select: none;
-          font-family: monospace;
-          font-size: 12px;
+          font-family: inherit;
+          font-size: 15px;
           box-sizing: border-box;
         }
 
         #pdf-toolbar button {
-          background: #fff;
-          border: 1px solid #000;
-          color: #000;
-          padding: 3px 8px;
+          background: transparent;
+          border: none;
+          color: #0000ee;
+          padding: 0;
           cursor: pointer;
-          font-family: monospace;
-          font-size: 12px;
-          line-height: 1;
-          transition: background 0.1s;
+          font-family: inherit;
+          font-size: 15px;
+          text-decoration: none;
+          line-height: 1.6;
         }
         #pdf-toolbar button:hover {
-          background: #f0f0f0;
-        }
-        #pdf-toolbar button:active {
-          background: #e0e0e0;
+          text-decoration: underline;
         }
 
         #pdf-zoom-display {
-          min-width: 40px;
-          text-align: center;
-          color: #000;
-          font-weight: bold;
+          color: #666;
+          font-family: inherit;
+          font-size: 15px;
         }
 
         /* ── Scroll Container ── */
@@ -221,12 +214,11 @@
 
         @media (max-width: 600px) {
           #pdf-toolbar {
-            padding: 6px 10px;
-            font-size: 11px;
+            padding: 8px 0;
+            font-size: 14px;
           }
           #pdf-toolbar button {
-            padding: 2px 6px;
-            font-size: 11px;
+            font-size: 14px;
           }
           #pdf-viewer-container {
             padding: 10px 0;
@@ -239,18 +231,18 @@
       </style>
 
       <div id="pdf-viewer-shell">
-        <!-- Minimalist Toolbar (White) -->
-        <div id="pdf-toolbar">
-          <button id="pdf-zoom-out" title="Zoom Out">&minus;</button>
-          <span id="pdf-zoom-display">100%</span>
-          <button id="pdf-zoom-in" title="Zoom In">+</button>
-          <button id="pdf-zoom-fit" title="Fit First Page">fit</button>
-        </div>
-
         <!-- Scroll area -->
         <div id="pdf-viewer-container">
           <div id="pdf-viewer-status"><span style="animation: pdfPulse 1.5s ease-in-out infinite;">[ loading document... ]</span></div>
           <div id="pdf-pages-inner"></div>
+        </div>
+
+        <!-- Minimalist Toolbar (Below Viewer) -->
+        <div id="pdf-toolbar">
+          <button id="pdf-zoom-out" title="Zoom Out">[ &minus; ]</button>
+          <span id="pdf-zoom-display">100%</span>
+          <button id="pdf-zoom-in" title="Zoom In">[ + ]</button>
+          <button id="pdf-zoom-fit" title="Fit First Page">[ fit ]</button>
         </div>
       </div>
       <p style="margin-top: 10px; font-size: 14px; text-align: center;">
