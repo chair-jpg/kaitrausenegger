@@ -172,6 +172,11 @@
           background-color: #e8e8e8;
           padding: 20px 0;
           box-sizing: border-box;
+          cursor: grab;
+        }
+        #pdf-viewer-container.is-dragging {
+          cursor: grabbing;
+          user-select: none;
         }
         
         #pdf-viewer-container::-webkit-scrollbar {
@@ -298,6 +303,7 @@
 
           var pdfDocument = null;
           var zoomLevel = 1.0;
+          var initialZoom = 1.0;
           var ZOOM_STEP = 0.25;
           var ZOOM_MIN = 0.5;
           var ZOOM_MAX = 3.0;
@@ -324,14 +330,31 @@
             pageTotalEl.textContent = totalPages;
             document.getElementById('pdf-viewer-status').style.display = 'none';
 
-            var promises = [];
-            for (var i = 1; i <= totalPages; i++) {
-              promises.push(createPageSlot(pdf, i));
-            }
-            return Promise.all(promises);
+            // Calculate initial zoom so first page fits entirely in the viewer
+            return pdf.getPage(1).then(function(firstPage) {
+              var vp = firstPage.getViewport({ scale: 1 });
+              var baseW = getBasePageWidth();
+              var containerH = container.clientHeight - 40; // subtract padding
+              var pageAspect = vp.height / vp.width;
+              var fittedH = baseW * pageAspect; // height if fit-to-width
+
+              if (fittedH > containerH) {
+                // Page is taller than container at fit-to-width, so scale down
+                initialZoom = containerH / fittedH;
+                zoomLevel = initialZoom;
+                zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
+              }
+
+              var promises = [];
+              for (var i = 1; i <= totalPages; i++) {
+                promises.push(createPageSlot(pdf, i));
+              }
+              return Promise.all(promises);
+            });
           }).then(function() {
             setupLazyLoading();
             setupScrollTracking();
+            setupDragToPan();
           }).catch(function(error) {
             console.error('PDF load error:', error);
             pagesInner.innerHTML = '<div style="padding:40px;text-align:center;font-family:monospace;color:#666;">[ Error loading PDF &mdash; <a href="' + PDF_URL + '" target="_blank" style="color:blue;">click here to download</a> ]</div>';
@@ -470,7 +493,7 @@
             setZoom(zoomLevel - ZOOM_STEP);
           });
           document.getElementById('pdf-zoom-fit').addEventListener('click', function() {
-            setZoom(1.0);
+            setZoom(initialZoom);
           });
 
           // ── Page jump ──
@@ -498,6 +521,60 @@
             if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(zoomLevel + ZOOM_STEP); }
             if (e.key === '-' || e.key === '_') { e.preventDefault(); setZoom(zoomLevel - ZOOM_STEP); }
           });
+
+          // ── Drag to pan ──
+          function setupDragToPan() {
+            var isDragging = false;
+            var startX, startY, scrollLeft, scrollTop;
+
+            container.addEventListener('mousedown', function(e) {
+              // Don't drag if clicking a link or button
+              if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
+              isDragging = true;
+              container.classList.add('is-dragging');
+              startX = e.pageX - container.offsetLeft;
+              startY = e.pageY - container.offsetTop;
+              scrollLeft = container.scrollLeft;
+              scrollTop = container.scrollTop;
+              e.preventDefault();
+            });
+
+            container.addEventListener('mousemove', function(e) {
+              if (!isDragging) return;
+              var x = e.pageX - container.offsetLeft;
+              var y = e.pageY - container.offsetTop;
+              container.scrollLeft = scrollLeft - (x - startX);
+              container.scrollTop = scrollTop - (y - startY);
+            });
+
+            container.addEventListener('mouseup', function() {
+              isDragging = false;
+              container.classList.remove('is-dragging');
+            });
+
+            container.addEventListener('mouseleave', function() {
+              isDragging = false;
+              container.classList.remove('is-dragging');
+            });
+
+            // Touch support for mobile
+            var touchStartX, touchStartY, touchScrollLeft, touchScrollTop;
+            container.addEventListener('touchstart', function(e) {
+              if (e.touches.length === 1) {
+                touchStartX = e.touches[0].pageX;
+                touchStartY = e.touches[0].pageY;
+                touchScrollLeft = container.scrollLeft;
+                touchScrollTop = container.scrollTop;
+              }
+            }, { passive: true });
+
+            container.addEventListener('touchmove', function(e) {
+              if (e.touches.length === 1 && zoomLevel > 1.0) {
+                var dx = touchStartX - e.touches[0].pageX;
+                container.scrollLeft = touchScrollLeft + dx;
+              }
+            }, { passive: true });
+          }
 
           // ── Window resize ──
           var resizeTimer;
