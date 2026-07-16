@@ -88,11 +88,41 @@
         Isabelle Andriessen, Andreas Werner, Chin Tsao, Tim Enthoven, Kai Philip Trausenegger, Ado/aptive<br><br>
         Exhibition Photography: Jorit Aust
       </p>
-      <div style="width: 100%; height: 80vh; border: 1px solid #000; margin-top: 15px;">
-        <object data="SPECULATIVE SPECULUM_Publication-1.pdf" type="application/pdf" width="100%" height="100%">
-          <p>Your browser does not support PDFs. <a href="SPECULATIVE SPECULUM_Publication-1.pdf">Download the PDF</a>.
-          </p>
+      <style>
+        .pdf-desktop-viewer {
+          width: 100%;
+          height: 80vh;
+          border: 1px solid #000;
+          margin-top: 15px;
+          display: block;
+        }
+        .pdf-mobile-fallback {
+          display: none;
+          margin-top: 20px;
+          padding: 20px;
+          border: 1px solid #000;
+          text-align: center;
+          background-color: #f9f9f9;
+        }
+        @media (max-width: 768px) {
+          .pdf-desktop-viewer {
+            display: none;
+          }
+          .pdf-mobile-fallback {
+            display: block;
+          }
+        }
+      </style>
+      
+      <div class="pdf-desktop-viewer">
+        <object data="SPECULATIVE-SPECULUM_Publication-1.pdf" type="application/pdf" width="100%" height="100%">
+          <p>Your browser does not support PDFs. <a href="SPECULATIVE-SPECULUM_Publication-1.pdf">Download the PDF</a>.</p>
         </object>
+      </div>
+
+      <div class="pdf-mobile-fallback">
+        <p style="margin-bottom: 15px;">Preview is unavailable on mobile devices due to the large file size.</p>
+        <a href="SPECULATIVE-SPECULUM_Publication-1.pdf" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; font-weight: bold;">[ Open / Download PDF ]</a>
       </div>
     </div>
   </section>
