@@ -91,29 +91,37 @@
       <style>
         /* ── PDF Viewer Shell ── */
         #pdf-viewer-shell {
-          margin-top: 15px;
-          border: 1px solid #000;
+          margin: 15px auto 0 auto;
+          border: 1px solid #ddd;
           position: relative;
-          display: inline-block; /* shrink to fit content */
+          display: block;
+          width: fit-content;
           max-width: 100%;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.05);
         }
 
         /* ── Toolbar ── */
         #pdf-toolbar {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          padding: 8px 12px;
-          background: #1a1a1a;
-          color: #ccc;
+          justify-content: center;
+          padding: 6px 12px;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(5px);
+          -webkit-backdrop-filter: blur(5px);
+          color: #333;
           font-family: monospace;
           font-size: 13px;
-          position: sticky;
-          top: 0;
+          position: absolute;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
           z-index: 10;
           user-select: none;
-          gap: 8px;
-          flex-wrap: wrap;
+          gap: 12px;
+          border-radius: 8px;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
         #pdf-toolbar .tb-group {
@@ -124,44 +132,44 @@
 
         #pdf-toolbar button {
           background: transparent;
-          border: 1px solid #555;
-          color: #ccc;
-          padding: 4px 10px;
+          border: 1px solid transparent;
+          color: #555;
+          padding: 4px 8px;
           cursor: pointer;
           font-family: monospace;
           font-size: 13px;
-          border-radius: 2px;
-          transition: background 0.15s, border-color 0.15s;
+          border-radius: 4px;
+          transition: background 0.15s, color 0.15s;
         }
         #pdf-toolbar button:hover {
-          background: #333;
-          border-color: #888;
-          color: #fff;
+          background: rgba(0, 0, 0, 0.05);
+          color: #000;
         }
         #pdf-toolbar button:active {
-          background: #555;
+          background: rgba(0, 0, 0, 0.1);
         }
 
         #pdf-page-input {
-          width: 36px;
-          background: #111;
-          border: 1px solid #555;
-          color: #fff;
+          width: 32px;
+          background: rgba(0,0,0,0.03);
+          border: 1px solid rgba(0,0,0,0.1);
+          color: #333;
           text-align: center;
           font-family: monospace;
           font-size: 13px;
-          padding: 3px 4px;
-          border-radius: 2px;
+          padding: 2px 4px;
+          border-radius: 4px;
           outline: none;
         }
         #pdf-page-input:focus {
-          border-color: #aaa;
+          border-color: #888;
+          background: #fff;
         }
 
         #pdf-zoom-display {
-          min-width: 42px;
+          min-width: 40px;
           text-align: center;
-          color: #aaa;
+          color: #777;
         }
 
         /* ── Scroll Container ── */
@@ -197,7 +205,7 @@
         #pdf-pages-inner {
           display: flex;
           flex-direction: column;
-          align-items: center;
+          align-items: flex-start; /* Ensures no left-clipping when zoomed */
           padding: 0;
         }
 
@@ -262,25 +270,25 @@
       </style>
 
       <div id="pdf-viewer-shell">
-        <!-- Toolbar -->
+        <!-- Scroll area -->
+        <div id="pdf-viewer-container">
+          <div id="pdf-viewer-status"><span style="animation: pdfPulse 1.5s ease-in-out infinite;">[ loading document... ]</span></div>
+          <div id="pdf-pages-inner"></div>
+        </div>
+
+        <!-- Floating Toolbar -->
         <div id="pdf-toolbar">
           <div class="tb-group">
-            <span style="color:#666;">page</span>
+            <span style="color:#888;">page</span>
             <input type="text" id="pdf-page-input" value="1" />
-            <span style="color:#666;">/ <span id="pdf-page-total">&ndash;</span></span>
+            <span style="color:#888;">/ <span id="pdf-page-total">&ndash;</span></span>
           </div>
-          <div class="tb-group">
+          <div class="tb-group" style="margin-left: 8px;">
             <button id="pdf-zoom-out" title="Zoom Out">&minus;</button>
             <span id="pdf-zoom-display">100%</span>
             <button id="pdf-zoom-in" title="Zoom In">+</button>
             <button id="pdf-zoom-fit" title="Fit Width">fit</button>
           </div>
-        </div>
-
-        <!-- Scroll area -->
-        <div id="pdf-viewer-container">
-          <div id="pdf-viewer-status"><span style="animation: pdfPulse 1.5s ease-in-out infinite;">[ loading document... ]</span></div>
-          <div id="pdf-pages-inner"></div>
         </div>
       </div>
       <p style="margin-top: 10px; font-size: 14px; text-align: center;">
@@ -382,6 +390,11 @@
               wrapper.className = 'pdf-page-wrapper';
               wrapper.setAttribute('data-page', pageNum);
               wrapper.style.width = displayW + 'px';
+              if (displayW < container.clientWidth) {
+                wrapper.style.marginLeft = Math.floor((container.clientWidth - displayW) / 2) + 'px';
+              } else {
+                wrapper.style.marginLeft = '0px';
+              }
 
               var ph = document.createElement('div');
               ph.className = 'pdf-loading-placeholder';
@@ -441,6 +454,11 @@
               page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
                 wrapper.innerHTML = '';
                 wrapper.style.width = cssW + 'px';
+                if (cssW < container.clientWidth) {
+                  wrapper.style.marginLeft = Math.floor((container.clientWidth - cssW) / 2) + 'px';
+                } else {
+                  wrapper.style.marginLeft = '0px';
+                }
                 wrapper.appendChild(canvas);
                 delete renderQueue[pageNum];
               });
@@ -458,6 +476,13 @@
               var displayH = Math.floor(displayW * (vp.height / vp.width));
 
               wrappers[i].style.width = displayW + 'px';
+              // Center the wrapper if it's smaller than the container (e.g. when fit to page)
+              if (displayW < container.clientWidth) {
+                wrappers[i].style.marginLeft = Math.floor((container.clientWidth - displayW) / 2) + 'px';
+              } else {
+                wrappers[i].style.marginLeft = '0px';
+              }
+
               var ph = wrappers[i].querySelector('.pdf-loading-placeholder');
               if (ph) {
                 ph.style.width = displayW + 'px';
