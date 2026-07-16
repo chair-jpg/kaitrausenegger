@@ -101,34 +101,41 @@
           display: flex;
           align-items: center;
           justify-content: flex-start;
-          gap: 12px;
-          padding: 10px 0;
+          gap: 6px;
+          padding: 12px 0;
           background: transparent;
           user-select: none;
-          font-family: inherit;
-          font-size: 15px;
+          font-family: "Times New Roman", Times, serif;
+          font-size: 13px;
           box-sizing: border-box;
         }
 
         #pdf-toolbar button {
-          background: transparent;
-          border: none;
-          color: #0000ee;
-          padding: 0;
+          background: #fff;
+          border: 1px solid #000;
+          color: #000;
+          padding: 4px 12px;
           cursor: pointer;
-          font-family: inherit;
-          font-size: 15px;
-          text-decoration: none;
-          line-height: 1.6;
+          font-family: "Times New Roman", Times, serif;
+          font-size: 13px;
+          line-height: 1;
+          transition: background 0.1s;
         }
         #pdf-toolbar button:hover {
-          text-decoration: underline;
+          background: #f0f0f0;
+          text-decoration: none;
+        }
+        #pdf-toolbar button:active {
+          background: #e0e0e0;
         }
 
         #pdf-zoom-display {
-          color: #666;
-          font-family: inherit;
-          font-size: 15px;
+          min-width: 40px;
+          text-align: center;
+          color: #000;
+          font-weight: bold;
+          font-family: "Times New Roman", Times, serif;
+          font-size: 13px;
         }
 
         /* ── Scroll Container ── */
@@ -215,10 +222,11 @@
         @media (max-width: 600px) {
           #pdf-toolbar {
             padding: 8px 0;
-            font-size: 14px;
+            font-size: 12px;
           }
           #pdf-toolbar button {
-            font-size: 14px;
+            padding: 3px 8px;
+            font-size: 12px;
           }
           #pdf-viewer-container {
             padding: 10px 0;
@@ -239,10 +247,10 @@
 
         <!-- Minimalist Toolbar (Below Viewer) -->
         <div id="pdf-toolbar">
-          <button id="pdf-zoom-out" title="Zoom Out">[ &minus; ]</button>
+          <button id="pdf-zoom-out" title="Zoom Out">&minus;</button>
           <span id="pdf-zoom-display">100%</span>
-          <button id="pdf-zoom-in" title="Zoom In">[ + ]</button>
-          <button id="pdf-zoom-fit" title="Fit First Page">[ fit ]</button>
+          <button id="pdf-zoom-in" title="Zoom In">+</button>
+          <button id="pdf-zoom-fit" title="Fit First Page">fit</button>
         </div>
       </div>
       <p style="margin-top: 10px; font-size: 14px; text-align: center;">
@@ -273,9 +281,9 @@
 
           // Base width = fit-to-width at zoom 1.0
           function getBasePageWidth() {
-            var cw = container.clientWidth - 30;
             var isMobile = window.innerWidth <= 600;
-            return Math.floor(cw * (isMobile ? 0.96 : 0.88));
+            var cw = container.clientWidth - (isMobile ? 8 : 24);
+            return Math.floor(cw * (isMobile ? 1.0 : 0.96));
           }
 
           function getDisplayPageWidth() {
