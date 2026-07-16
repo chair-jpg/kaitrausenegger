@@ -307,8 +307,16 @@
             return Math.floor(cw * (isMobile ? 1.0 : 0.96));
           }
 
-          function getDisplayPageWidth() {
-            return Math.floor(getBasePageWidth() * zoomLevel);
+          // Calculate dimensions for any page, keeping native scale proportions relative to page 1
+          function getPageDisplayDimensions(pageNum) {
+            var nativeVP = pageViewports[pageNum];
+            var refVP = pageViewports[1] || nativeVP; // fallback if page 1 is loading
+            var refWidth = getBasePageWidth();
+            var scale = (refWidth / refVP.width) * zoomLevel;
+            return {
+              width: Math.floor(nativeVP.width * scale),
+              height: Math.floor(nativeVP.height * scale)
+            };
           }
 
           // ── Load PDF ──
@@ -320,6 +328,8 @@
             // Calculate initial zoom so first page fits entirely in the viewer
             return pdf.getPage(1).then(function (firstPage) {
               var vp = firstPage.getViewport({ scale: 1 });
+              pageViewports[1] = { width: vp.width, height: vp.height };
+              
               var baseW = getBasePageWidth();
               var containerH = container.clientHeight - 40; // subtract padding
               var pageAspect = vp.height / vp.width;
@@ -357,18 +367,17 @@
               var vp = page.getViewport({ scale: 1 });
               pageViewports[pageNum] = { width: vp.width, height: vp.height };
 
-              var displayW = getDisplayPageWidth();
-              var displayH = Math.floor(displayW * (vp.height / vp.width));
+              var dims = getPageDisplayDimensions(pageNum);
 
               var wrapper = document.createElement('div');
               wrapper.className = 'pdf-page-wrapper';
               wrapper.setAttribute('data-page', pageNum);
-              wrapper.style.width = displayW + 'px';
+              wrapper.style.width = dims.width + 'px';
 
               var ph = document.createElement('div');
               ph.className = 'pdf-loading-placeholder';
-              ph.style.width = displayW + 'px';
-              ph.style.height = displayH + 'px';
+              ph.style.width = dims.width + 'px';
+              ph.style.height = dims.height + 'px';
               ph.innerHTML = '<span>[ page ' + pageNum + ' ]</span>';
               wrapper.appendChild(ph);
 
@@ -402,12 +411,12 @@
             renderQueue[pageNum] = true;
 
             pdfDocument.getPage(pageNum).then(function (page) {
-              var displayW = getDisplayPageWidth();
+              var dims = getPageDisplayDimensions(pageNum);
               var dpr = window.devicePixelRatio || 1;
               var nativeVP = pageViewports[pageNum];
 
               // Internal render scale = display size * device pixel ratio
-              var scale = (displayW / nativeVP.width) * dpr;
+              var scale = (dims.width / nativeVP.width) * dpr;
               var viewport = page.getViewport({ scale: scale });
 
               var canvas = document.createElement('canvas');
@@ -415,14 +424,12 @@
               canvas.width = viewport.width;
               canvas.height = viewport.height;
 
-              var cssW = displayW;
-              var cssH = Math.floor(viewport.height / dpr);
-              canvas.style.width = cssW + 'px';
-              canvas.style.height = cssH + 'px';
+              canvas.style.width = dims.width + 'px';
+              canvas.style.height = dims.height + 'px';
 
               page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
                 wrapper.innerHTML = '';
-                wrapper.style.width = cssW + 'px';
+                wrapper.style.width = dims.width + 'px';
                 wrapper.appendChild(canvas);
                 delete renderQueue[pageNum];
               });
@@ -435,15 +442,13 @@
             var wrappers = pagesInner.querySelectorAll('.pdf-page-wrapper');
             for (var i = 0; i < wrappers.length; i++) {
               var pn = parseInt(wrappers[i].getAttribute('data-page'));
-              var vp = pageViewports[pn];
-              var displayW = getDisplayPageWidth();
-              var displayH = Math.floor(displayW * (vp.height / vp.width));
+              var dims = getPageDisplayDimensions(pn);
 
-              wrappers[i].style.width = displayW + 'px';
+              wrappers[i].style.width = dims.width + 'px';
               var ph = wrappers[i].querySelector('.pdf-loading-placeholder');
               if (ph) {
-                ph.style.width = displayW + 'px';
-                ph.style.height = displayH + 'px';
+                ph.style.width = dims.width + 'px';
+                ph.style.height = dims.height + 'px';
               }
             }
             setupLazyLoading();
