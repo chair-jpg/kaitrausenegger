@@ -166,11 +166,11 @@
         /* ── Scroll Container ── */
         #pdf-viewer-container {
           width: 100%;
-          height: 78vh;
+          height: 80vh; /* overridden by JS to match first page */
           overflow-y: auto;
           overflow-x: auto;
           background-color: #e8e8e8;
-          padding: 20px 0;
+          padding: 6px 0;
           box-sizing: border-box;
           cursor: grab;
         }
@@ -203,11 +203,11 @@
 
         .pdf-page-wrapper {
           background-color: #fff;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.1);
           position: relative;
           overflow: hidden;
           line-height: 0;
-          margin-bottom: 24px;
+          margin-bottom: 6px;
         }
 
         .pdf-page-wrapper canvas {
@@ -252,11 +252,10 @@
             font-size: 12px;
           }
           #pdf-viewer-container {
-            padding: 10px 0;
-            height: 70vh;
+            padding: 4px 0;
           }
           .pdf-page-wrapper {
-            margin-bottom: 16px;
+            margin-bottom: 4px;
           }
         }
       </style>
@@ -314,9 +313,8 @@
 
           // Base width = fit-to-width at zoom 1.0
           function getBasePageWidth() {
-            var cw = container.clientWidth - 30;
-            var isMobile = window.innerWidth <= 600;
-            return Math.floor(cw * (isMobile ? 0.96 : 0.88));
+            var cw = container.clientWidth - 20;
+            return Math.floor(cw * 0.98);
           }
 
           function getDisplayPageWidth() {
@@ -333,13 +331,22 @@
             // Calculate initial zoom so first page fits entirely in the viewer
             return pdf.getPage(1).then(function(firstPage) {
               var vp = firstPage.getViewport({ scale: 1 });
-              var baseW = getBasePageWidth();
-              var containerH = container.clientHeight - 40; // subtract padding
               var pageAspect = vp.height / vp.width;
-              var fittedH = baseW * pageAspect; // height if fit-to-width
+
+              // Set the container height to match the first page proportions
+              var availableWidth = container.clientWidth;
+              var idealHeight = Math.floor(availableWidth * pageAspect);
+              // Cap it so it never exceeds 85vh
+              var maxH = Math.floor(window.innerHeight * 0.85);
+              var finalH = Math.min(idealHeight, maxH);
+              container.style.height = finalH + 'px';
+
+              // Recalculate: does the page fit at zoom 1.0?
+              var baseW = getBasePageWidth();
+              var containerH = finalH - 12; // subtract padding
+              var fittedH = baseW * pageAspect;
 
               if (fittedH > containerH) {
-                // Page is taller than container at fit-to-width, so scale down
                 initialZoom = containerH / fittedH;
                 zoomLevel = initialZoom;
                 zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
