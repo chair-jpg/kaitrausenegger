@@ -488,26 +488,7 @@
               container.classList.remove('is-dragging');
             });
 
-            // Touch support for mobile (scroll only inside PDF without moving the whole webpage when zoomed)
-            var touchStartX, touchStartY, touchScrollLeft, touchScrollTop;
-            container.addEventListener('touchstart', function(e) {
-              if (e.touches.length === 1) {
-                touchStartX = e.touches[0].pageX;
-                touchStartY = e.touches[0].pageY;
-                touchScrollLeft = container.scrollLeft;
-                touchScrollTop = container.scrollTop;
-              }
-            }, { passive: true });
-
-            container.addEventListener('touchmove', function(e) {
-              if (e.touches.length === 1 && zoomLevel > initialZoom) {
-                var dx = touchStartX - e.touches[0].pageX;
-                var dy = touchStartY - e.touches[0].pageY;
-                container.scrollLeft = touchScrollLeft + dx;
-                container.scrollTop = touchScrollTop + dy;
-                if (e.cancelable) e.preventDefault();
-              }
-            }, { passive: false });
+            // Touch support for mobile is handled natively by the browser's overflow scroll.
           }
 
           // ── Window resize ──
