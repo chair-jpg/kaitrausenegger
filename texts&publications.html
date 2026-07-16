@@ -88,13 +88,49 @@
         Isabelle Andriessen, Andreas Werner, Chin Tsao, Tim Enthoven, Kai Philip Trausenegger, Ado/aptive<br><br>
         Exhibition Photography: Jorit Aust
       </p>
-      <div style="width: 100%; border: 1px solid #000; margin-top: 15px;">
-        <div style="background: #f9f9f9; padding: 10px; text-align: center; border-bottom: 1px solid #000; display: flex; justify-content: space-between; align-items: center;">
-          <button id="prev-page" style="padding: 8px 15px; cursor: pointer; background: #000; color: #fff; border: none; font-weight: bold;">&larr; Previous</button>
-          <span style="font-weight: bold;">Page <span id="page-num"></span> / <span id="page-count"></span></span>
-          <button id="next-page" style="padding: 8px 15px; cursor: pointer; background: #000; color: #fff; border: none; font-weight: bold;">Next &rarr;</button>
-        </div>
-        <canvas id="pdf-canvas" style="width: 100%; height: auto; display: block; margin: 0 auto;"></canvas>
+      <style>
+        #pdf-viewer-container {
+          width: 100%;
+          height: 80vh;
+          overflow-y: auto;
+          border: 1px solid #000;
+          margin-top: 15px;
+          background-color: #f0f0f0;
+          padding: 20px 0;
+          box-sizing: border-box;
+        }
+        
+        #pdf-viewer-container::-webkit-scrollbar {
+          width: 8px;
+        }
+        #pdf-viewer-container::-webkit-scrollbar-track {
+          background: #f0f0f0;
+          border-left: 1px solid #000;
+        }
+        #pdf-viewer-container::-webkit-scrollbar-thumb {
+          background-color: #000;
+        }
+
+        .pdf-page-wrapper {
+          width: 90%;
+          margin: 0 auto 30px auto;
+          background-color: #fff;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          position: relative;
+        }
+
+        .pdf-loading-text {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font-family: monospace;
+          color: #888;
+        }
+      </style>
+
+      <div id="pdf-viewer-container">
+        <!-- Pages will be dynamically injected here -->
       </div>
       <p style="margin-top: 10px; font-size: 14px; text-align: center;">
         <a href="SPECULATIVE-SPECULUM_Publication-1-Conpressed_Medium_compressed.pdf" target="_blank" style="color: blue;">[ Direct Download / Open in Browser ]</a>
@@ -103,71 +139,76 @@
       <!-- PDF.js Library -->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
       <script>
-        var url = 'SPECULATIVE-SPECULUM_Publication-1-Conpressed_Medium_compressed.pdf';
-        var pdfjsLib = window['pdfjs-dist/build/pdf'];
+        const url = 'SPECULATIVE-SPECULUM_Publication-1-Conpressed_Medium_compressed.pdf';
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        var pdfDoc = null,
-            pageNum = 1,
-            pageRendering = false,
-            pageNumPending = null,
-            scale = 1.5,
-            canvas = document.getElementById('pdf-canvas'),
-            ctx = canvas.getContext('2d');
+        const container = document.getElementById('pdf-viewer-container');
 
-        function renderPage(num) {
-          pageRendering = true;
+        pdfjsLib.getDocument(url).promise.then(async function(pdfDoc) {
+          // Get the first page to determine the document's aspect ratio
+          const firstPage = await pdfDoc.getPage(1);
+          const viewport = firstPage.getViewport({ scale: 1 });
+          const aspectRatio = viewport.width / viewport.height;
+
+          // Set up the lazy loader
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                const pageNum = parseInt(entry.target.getAttribute('data-page-num'));
+                renderPage(pdfDoc, pageNum, entry.target);
+                observer.unobserve(entry.target); // Only render once
+              }
+            });
+          }, { root: container, rootMargin: '400px 0px' }); // Load just before scrolling into view
+
+          // Create placeholder boxes for all pages
+          for (let i = 1; i <= pdfDoc.numPages; i++) {
+            const pageWrapper = document.createElement('div');
+            pageWrapper.className = 'pdf-page-wrapper';
+            pageWrapper.setAttribute('data-page-num', i);
+            pageWrapper.style.aspectRatio = aspectRatio;
+            
+            const loadingText = document.createElement('div');
+            loadingText.className = 'pdf-loading-text';
+            loadingText.innerText = '[ loading... ]';
+            pageWrapper.appendChild(loadingText);
+
+            container.appendChild(pageWrapper);
+            observer.observe(pageWrapper);
+          }
+        }).catch(function(error) {
+          console.error('Error loading PDF:', error);
+          container.innerHTML = '<div style="padding: 20px; text-align: center; font-family: monospace;">[ Error loading PDF document ]</div>';
+        });
+
+        function renderPage(pdfDoc, num, wrapper) {
           pdfDoc.getPage(num).then(function(page) {
-            var viewport = page.getViewport({scale: scale});
+            // Render at high resolution to keep text crisp on retina/mobile screens
+            const scale = 2.0; 
+            const viewport = page.getViewport({ scale: scale });
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
+            
+            // Force it to fit neatly inside the wrapper via CSS
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.display = 'block';
 
-            var renderContext = {
+            const renderContext = {
               canvasContext: ctx,
               viewport: viewport
             };
-            var renderTask = page.render(renderContext);
 
-            renderTask.promise.then(function() {
-              pageRendering = false;
-              if (pageNumPending !== null) {
-                renderPage(pageNumPending);
-                pageNumPending = null;
-              }
+            page.render(renderContext).promise.then(() => {
+              wrapper.innerHTML = ''; // Clear the loading text
+              wrapper.appendChild(canvas); // Add the crisp rendered canvas
             });
           });
-          document.getElementById('page-num').textContent = num;
         }
-
-        function queueRenderPage(num) {
-          if (pageRendering) {
-            pageNumPending = num;
-          } else {
-            renderPage(num);
-          }
-        }
-
-        document.getElementById('prev-page').addEventListener('click', function() {
-          if (pageNum <= 1) return;
-          pageNum--;
-          queueRenderPage(pageNum);
-        });
-
-        document.getElementById('next-page').addEventListener('click', function() {
-          if (pageNum >= pdfDoc.numPages) return;
-          pageNum++;
-          queueRenderPage(pageNum);
-        });
-
-        pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
-          pdfDoc = pdfDoc_;
-          document.getElementById('page-count').textContent = pdfDoc.numPages;
-          renderPage(pageNum);
-        }).catch(function(error) {
-          console.error('Error loading PDF:', error);
-          ctx.font = "16px Arial";
-          ctx.fillText("Failed to load PDF.", 20, 50);
-        });
       </script>
     </div>
   </section>
