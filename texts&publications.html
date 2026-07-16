@@ -93,44 +93,87 @@
           width: 100%;
           height: 80vh;
           overflow-y: auto;
+          overflow-x: hidden;
           border: 1px solid #000;
           margin-top: 15px;
-          background-color: #f0f0f0;
+          background-color: #e8e8e8;
           padding: 20px 0;
           box-sizing: border-box;
+          scroll-behavior: smooth;
         }
         
         #pdf-viewer-container::-webkit-scrollbar {
-          width: 8px;
+          width: 6px;
         }
         #pdf-viewer-container::-webkit-scrollbar-track {
-          background: #f0f0f0;
-          border-left: 1px solid #000;
+          background: transparent;
         }
         #pdf-viewer-container::-webkit-scrollbar-thumb {
-          background-color: #000;
+          background-color: rgba(0,0,0,0.4);
+          border-radius: 3px;
+        }
+        #pdf-viewer-container::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(0,0,0,0.7);
         }
 
         .pdf-page-wrapper {
-          width: 90%;
-          margin: 0 auto 30px auto;
+          width: 88%;
+          margin: 0 auto 24px auto;
           background-color: #fff;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
           position: relative;
+          overflow: hidden;
+          line-height: 0; /* Removes gap below canvas */
         }
 
-        .pdf-loading-text {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
+        .pdf-page-wrapper canvas {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
+
+        .pdf-loading-placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          background: #fafafa;
           font-family: monospace;
-          color: #888;
+          font-size: 13px;
+          color: #999;
+          letter-spacing: 1px;
+        }
+
+        @keyframes pdfPulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+        .pdf-loading-placeholder span {
+          animation: pdfPulse 1.5s ease-in-out infinite;
+        }
+
+        #pdf-viewer-status {
+          text-align: center;
+          padding: 12px;
+          font-family: monospace;
+          font-size: 13px;
+          color: #666;
+          letter-spacing: 1px;
+        }
+
+        @media (max-width: 600px) {
+          .pdf-page-wrapper {
+            width: 96%;
+            margin-bottom: 16px;
+          }
+          #pdf-viewer-container {
+            padding: 10px 0;
+          }
         }
       </style>
 
       <div id="pdf-viewer-container">
-        <!-- Pages will be dynamically injected here -->
+        <div id="pdf-viewer-status"><span style="animation: pdfPulse 1.5s ease-in-out infinite;">[ loading document... ]</span></div>
       </div>
       <p style="margin-top: 10px; font-size: 14px; text-align: center;">
         <a href="SPECULATIVE-SPECULUM_Publication-1_Medium_compressed.pdf" target="_blank" style="color: blue;">[ Direct Download / Open in Browser ]</a>
@@ -139,76 +182,130 @@
       <!-- PDF.js Library -->
       <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
       <script>
-        const url = 'SPECULATIVE-SPECULUM_Publication-1_Medium_compressed.pdf';
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        (function() {
+          var PDF_URL = 'SPECULATIVE-SPECULUM_Publication-1_Medium_compressed.pdf';
+          var pdfjsLib = window['pdfjs-dist/build/pdf'];
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        const container = document.getElementById('pdf-viewer-container');
+          var container = document.getElementById('pdf-viewer-container');
+          var pdfDocument = null;
+          var renderedPages = {};
 
-        pdfjsLib.getDocument(url).promise.then(async function(pdfDoc) {
-          // Get the first page to determine the document's aspect ratio
-          const firstPage = await pdfDoc.getPage(1);
-          const viewport = firstPage.getViewport({ scale: 1 });
-          const aspectRatio = viewport.width / viewport.height;
-
-          // Set up the lazy loader
-          const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-              if (entry.isIntersecting) {
-                const pageNum = parseInt(entry.target.getAttribute('data-page-num'));
-                renderPage(pdfDoc, pageNum, entry.target);
-                observer.unobserve(entry.target); // Only render once
-              }
-            });
-          }, { root: container, rootMargin: '400px 0px' }); // Load just before scrolling into view
-
-          // Create placeholder boxes for all pages
-          for (let i = 1; i <= pdfDoc.numPages; i++) {
-            const pageWrapper = document.createElement('div');
-            pageWrapper.className = 'pdf-page-wrapper';
-            pageWrapper.setAttribute('data-page-num', i);
-            pageWrapper.style.aspectRatio = aspectRatio;
-            
-            const loadingText = document.createElement('div');
-            loadingText.className = 'pdf-loading-text';
-            loadingText.innerText = '[ loading... ]';
-            pageWrapper.appendChild(loadingText);
-
-            container.appendChild(pageWrapper);
-            observer.observe(pageWrapper);
+          // Get the usable width inside the container for a page wrapper
+          function getPageWidth() {
+            // Page wrapper is 88% of container (96% on mobile via CSS)
+            var containerWidth = container.clientWidth;
+            var isMobile = window.innerWidth <= 600;
+            return Math.floor(containerWidth * (isMobile ? 0.96 : 0.88));
           }
-        }).catch(function(error) {
-          console.error('Error loading PDF:', error);
-          container.innerHTML = '<div style="padding: 20px; text-align: center; font-family: monospace;">[ Error loading PDF document ]</div>';
-        });
 
-        function renderPage(pdfDoc, num, wrapper) {
-          pdfDoc.getPage(num).then(function(page) {
-            // Render at high resolution to keep text crisp on retina/mobile screens
-            const scale = 2.0; 
-            const viewport = page.getViewport({ scale: scale });
+          pdfjsLib.getDocument(PDF_URL).promise.then(function(pdf) {
+            pdfDocument = pdf;
+            container.innerHTML = ''; // Clear loading status
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            
-            // Force it to fit neatly inside the wrapper via CSS
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.display = 'block';
+            // We need each page's own dimensions (pages can differ in size)
+            var setupPromises = [];
+            for (var i = 1; i <= pdf.numPages; i++) {
+              setupPromises.push(createPagePlaceholder(pdf, i));
+            }
 
-            const renderContext = {
-              canvasContext: ctx,
-              viewport: viewport
-            };
-
-            page.render(renderContext).promise.then(() => {
-              wrapper.innerHTML = ''; // Clear the loading text
-              wrapper.appendChild(canvas); // Add the crisp rendered canvas
+            return Promise.all(setupPromises);
+          }).then(function() {
+            // Set up lazy loading via IntersectionObserver
+            var observer = new IntersectionObserver(function(entries) {
+              entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                  var pageNum = parseInt(entry.target.getAttribute('data-page'));
+                  if (!renderedPages[pageNum]) {
+                    renderedPages[pageNum] = true;
+                    renderPage(pageNum, entry.target);
+                  }
+                  observer.unobserve(entry.target);
+                }
+              });
+            }, {
+              root: container,
+              rootMargin: '600px 0px'  // Pre-load pages 600px before they scroll into view
             });
+
+            var wrappers = container.querySelectorAll('.pdf-page-wrapper');
+            for (var i = 0; i < wrappers.length; i++) {
+              observer.observe(wrappers[i]);
+            }
+          }).catch(function(error) {
+            console.error('PDF load error:', error);
+            container.innerHTML = '<div style="padding: 40px; text-align: center; font-family: monospace; color: #666;">[ Error loading PDF — <a href="' + PDF_URL + '" target="_blank" style="color: blue;">click here to download</a> ]</div>';
           });
-        }
+
+          // Create a placeholder div with the correct aspect ratio for each page
+          function createPagePlaceholder(pdf, pageNum) {
+            return pdf.getPage(pageNum).then(function(page) {
+              var viewport = page.getViewport({ scale: 1 });
+              var ratio = viewport.height / viewport.width;
+              var pageWidth = getPageWidth();
+              var pageHeight = Math.floor(pageWidth * ratio);
+
+              var wrapper = document.createElement('div');
+              wrapper.className = 'pdf-page-wrapper';
+              wrapper.setAttribute('data-page', pageNum);
+
+              // Create a properly sized placeholder
+              var placeholder = document.createElement('div');
+              placeholder.className = 'pdf-loading-placeholder';
+              placeholder.style.height = pageHeight + 'px';
+              placeholder.innerHTML = '<span>[ page ' + pageNum + ' ]</span>';
+              wrapper.appendChild(placeholder);
+
+              container.appendChild(wrapper);
+            });
+          }
+
+          // Render a single page into its wrapper
+          function renderPage(pageNum, wrapper) {
+            pdfDocument.getPage(pageNum).then(function(page) {
+              var pageWidth = getPageWidth();
+              var dpr = window.devicePixelRatio || 1;
+
+              // Calculate scale so the PDF page width matches the container width
+              var defaultViewport = page.getViewport({ scale: 1 });
+              var scale = (pageWidth / defaultViewport.width) * dpr;
+              var viewport = page.getViewport({ scale: scale });
+
+              var canvas = document.createElement('canvas');
+              var ctx = canvas.getContext('2d');
+
+              // Internal resolution (high-res for retina)
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+
+              // CSS display size (actual screen pixels)
+              canvas.style.width = pageWidth + 'px';
+              canvas.style.height = Math.floor(viewport.height / dpr) + 'px';
+
+              page.render({
+                canvasContext: ctx,
+                viewport: viewport
+              }).promise.then(function() {
+                wrapper.innerHTML = '';
+                wrapper.appendChild(canvas);
+              });
+            });
+          }
+
+          // Re-render all visible pages on window resize (e.g. rotating phone)
+          var resizeTimer;
+          window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+              renderedPages = {};
+              var wrappers = container.querySelectorAll('.pdf-page-wrapper');
+              for (var i = 0; i < wrappers.length; i++) {
+                var pageNum = parseInt(wrappers[i].getAttribute('data-page'));
+                renderPage(pageNum, wrappers[i]);
+              }
+            }, 300);
+          });
+        })();
       </script>
     </div>
   </section>
