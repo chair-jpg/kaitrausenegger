@@ -93,7 +93,6 @@
         #pdf-viewer-shell {
           width: 100%;
           margin-top: 15px;
-          border: 1px solid #000;
           position: relative;
         }
 
@@ -103,9 +102,8 @@
           align-items: center;
           justify-content: flex-end;
           gap: 6px;
-          padding: 8px 12px;
+          padding: 8px 0;
           background: #fff;
-          border-bottom: 1px solid #000;
           position: sticky;
           top: 0;
           z-index: 10;
@@ -151,6 +149,7 @@
           box-sizing: border-box;
           cursor: grab;
           touch-action: pan-x pan-y;
+          border: 1px solid #000;
         }
         #pdf-viewer-container.is-dragging {
           cursor: grabbing;
