@@ -174,9 +174,9 @@
 
         /* ── Pages ── */
         #pdf-pages-inner {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
+          display: inline-block;
+          min-width: 100%;
+          vertical-align: top;
         }
 
         .pdf-page-wrapper {
@@ -185,7 +185,8 @@
           position: relative;
           overflow: hidden;
           line-height: 0;
-          margin-bottom: 24px;
+          margin: 0 auto 24px auto;
+          display: block;
         }
 
         .pdf-page-wrapper canvas {
@@ -304,12 +305,17 @@
               var containerH = container.clientHeight - 40; // subtract padding
               var pageAspect = vp.height / vp.width;
               var fittedH = baseW * pageAspect; // height if fit-to-width
+              var isMobile = window.innerWidth <= 600;
 
-              if (fittedH > containerH) {
-                // Page is taller than container at fit-to-width, so scale down
+              // Only fit vertically on desktop; mobile always starts at fit-to-width (100%)
+              if (!isMobile && fittedH > containerH) {
                 initialZoom = containerH / fittedH;
                 zoomLevel = initialZoom;
                 zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
+              } else {
+                initialZoom = 1.0;
+                zoomLevel = 1.0;
+                zoomDisplay.textContent = '100%';
               }
 
               var promises = [];
