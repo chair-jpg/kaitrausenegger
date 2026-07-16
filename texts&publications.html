@@ -97,70 +97,48 @@
           position: relative;
         }
 
-        /* ── Toolbar ── */
+        /* ── Floating Minimalist Toolbar (White) ── */
         #pdf-toolbar {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          padding: 8px 12px;
-          background: #1a1a1a;
-          color: #ccc;
-          font-family: monospace;
-          font-size: 13px;
-          position: sticky;
-          top: 0;
+          gap: 6px;
+          padding: 6px 8px;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(4px);
+          border: 1px solid #000;
+          position: absolute;
+          top: 15px;
+          right: 15px;
           z-index: 10;
           user-select: none;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        #pdf-toolbar .tb-group {
-          display: flex;
-          align-items: center;
-          gap: 6px;
+          font-family: monospace;
+          font-size: 12px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         #pdf-toolbar button {
-          background: transparent;
-          border: 1px solid #555;
-          color: #ccc;
-          padding: 4px 10px;
+          background: #fff;
+          border: 1px solid #000;
+          color: #000;
+          padding: 3px 8px;
           cursor: pointer;
           font-family: monospace;
-          font-size: 13px;
-          border-radius: 2px;
-          transition: background 0.15s, border-color 0.15s;
+          font-size: 12px;
+          line-height: 1;
+          transition: background 0.1s;
         }
         #pdf-toolbar button:hover {
-          background: #333;
-          border-color: #888;
-          color: #fff;
+          background: #f0f0f0;
         }
         #pdf-toolbar button:active {
-          background: #555;
-        }
-
-        #pdf-page-input {
-          width: 36px;
-          background: #111;
-          border: 1px solid #555;
-          color: #fff;
-          text-align: center;
-          font-family: monospace;
-          font-size: 13px;
-          padding: 3px 4px;
-          border-radius: 2px;
-          outline: none;
-        }
-        #pdf-page-input:focus {
-          border-color: #aaa;
+          background: #e0e0e0;
         }
 
         #pdf-zoom-display {
-          min-width: 42px;
+          min-width: 40px;
           text-align: center;
-          color: #aaa;
+          color: #000;
+          font-weight: bold;
         }
 
         /* ── Scroll Container ── */
@@ -173,6 +151,7 @@
           padding: 20px 0;
           box-sizing: border-box;
           cursor: grab;
+          touch-action: pan-x pan-y;
         }
         #pdf-viewer-container.is-dragging {
           cursor: grabbing;
@@ -244,12 +223,14 @@
 
         @media (max-width: 600px) {
           #pdf-toolbar {
-            padding: 6px 8px;
-            font-size: 12px;
+            top: 10px;
+            right: 10px;
+            padding: 4px 6px;
+            font-size: 11px;
           }
           #pdf-toolbar button {
-            padding: 3px 7px;
-            font-size: 12px;
+            padding: 2px 6px;
+            font-size: 11px;
           }
           #pdf-viewer-container {
             padding: 10px 0;
@@ -262,19 +243,12 @@
       </style>
 
       <div id="pdf-viewer-shell">
-        <!-- Toolbar -->
+        <!-- Floating Minimalist Toolbar (White) -->
         <div id="pdf-toolbar">
-          <div class="tb-group">
-            <span style="color:#666;">page</span>
-            <input type="text" id="pdf-page-input" value="1" />
-            <span style="color:#666;">/ <span id="pdf-page-total">&ndash;</span></span>
-          </div>
-          <div class="tb-group">
-            <button id="pdf-zoom-out" title="Zoom Out">&minus;</button>
-            <span id="pdf-zoom-display">100%</span>
-            <button id="pdf-zoom-in" title="Zoom In">+</button>
-            <button id="pdf-zoom-fit" title="Fit Width">fit</button>
-          </div>
+          <button id="pdf-zoom-out" title="Zoom Out">&minus;</button>
+          <span id="pdf-zoom-display">100%</span>
+          <button id="pdf-zoom-in" title="Zoom In">+</button>
+          <button id="pdf-zoom-fit" title="Fit First Page">fit</button>
         </div>
 
         <!-- Scroll area -->
@@ -297,8 +271,6 @@
 
           var container = document.getElementById('pdf-viewer-container');
           var pagesInner = document.getElementById('pdf-pages-inner');
-          var pageInput = document.getElementById('pdf-page-input');
-          var pageTotalEl = document.getElementById('pdf-page-total');
           var zoomDisplay = document.getElementById('pdf-zoom-display');
 
           var pdfDocument = null;
@@ -308,7 +280,6 @@
           var ZOOM_MIN = 0.5;
           var ZOOM_MAX = 3.0;
           var totalPages = 0;
-          var currentPage = 1;
           var pageViewports = {};
           var renderQueue = {};
 
@@ -327,7 +298,6 @@
           pdfjsLib.getDocument(PDF_URL).promise.then(function(pdf) {
             pdfDocument = pdf;
             totalPages = pdf.numPages;
-            pageTotalEl.textContent = totalPages;
             document.getElementById('pdf-viewer-status').style.display = 'none';
 
             // Calculate initial zoom so first page fits entirely in the viewer
@@ -353,7 +323,6 @@
             });
           }).then(function() {
             setupLazyLoading();
-            setupScrollTracking();
             setupDragToPan();
           }).catch(function(error) {
             console.error('PDF load error:', error);
@@ -458,27 +427,6 @@
             setupLazyLoading();
           }
 
-          // ── Scroll tracking for page counter ──
-          function setupScrollTracking() {
-            container.addEventListener('scroll', function() {
-              var wrappers = pagesInner.querySelectorAll('.pdf-page-wrapper');
-              var containerRect = container.getBoundingClientRect();
-              var midY = containerRect.top + containerRect.height / 3;
-
-              for (var i = 0; i < wrappers.length; i++) {
-                var rect = wrappers[i].getBoundingClientRect();
-                if (rect.top <= midY && rect.bottom > midY) {
-                  var pn = parseInt(wrappers[i].getAttribute('data-page'));
-                  if (pn !== currentPage) {
-                    currentPage = pn;
-                    pageInput.value = pn;
-                  }
-                  break;
-                }
-              }
-            });
-          }
-
           // ── Zoom controls ──
           function setZoom(newZoom) {
             zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(newZoom * 100) / 100));
@@ -496,25 +444,6 @@
             setZoom(initialZoom);
           });
 
-          // ── Page jump ──
-          function goToPage(num) {
-            num = Math.max(1, Math.min(totalPages, num));
-            var target = pagesInner.querySelector('[data-page="' + num + '"]');
-            if (target) {
-              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              currentPage = num;
-              pageInput.value = num;
-            }
-          }
-
-          pageInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-              var val = parseInt(pageInput.value);
-              if (!isNaN(val)) goToPage(val);
-              pageInput.blur();
-            }
-          });
-
           // ── Keyboard shortcuts ──
           document.addEventListener('keydown', function(e) {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -528,7 +457,6 @@
             var startX, startY, scrollLeft, scrollTop;
 
             container.addEventListener('mousedown', function(e) {
-              // Don't drag if clicking a link or button
               if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
               isDragging = true;
               container.classList.add('is-dragging');
@@ -557,7 +485,7 @@
               container.classList.remove('is-dragging');
             });
 
-            // Touch support for mobile
+            // Touch support for mobile (scroll only inside PDF without moving the whole webpage when zoomed)
             var touchStartX, touchStartY, touchScrollLeft, touchScrollTop;
             container.addEventListener('touchstart', function(e) {
               if (e.touches.length === 1) {
@@ -569,11 +497,14 @@
             }, { passive: true });
 
             container.addEventListener('touchmove', function(e) {
-              if (e.touches.length === 1 && zoomLevel > 1.0) {
+              if (e.touches.length === 1 && zoomLevel > initialZoom) {
                 var dx = touchStartX - e.touches[0].pageX;
+                var dy = touchStartY - e.touches[0].pageY;
                 container.scrollLeft = touchScrollLeft + dx;
+                container.scrollTop = touchScrollTop + dy;
+                if (e.cancelable) e.preventDefault();
               }
-            }, { passive: true });
+            }, { passive: false });
           }
 
           // ── Window resize ──
