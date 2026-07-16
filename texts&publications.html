@@ -97,23 +97,22 @@
           position: relative;
         }
 
-        /* ── Floating Minimalist Toolbar (White) ── */
+        /* ── Minimalist Toolbar (White) ── */
         #pdf-toolbar {
           display: flex;
           align-items: center;
+          justify-content: flex-end;
           gap: 6px;
-          padding: 6px 8px;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(4px);
-          border: 1px solid #000;
-          position: absolute;
-          top: 15px;
-          right: 15px;
+          padding: 8px 12px;
+          background: #fff;
+          border-bottom: 1px solid #000;
+          position: sticky;
+          top: 0;
           z-index: 10;
           user-select: none;
           font-family: monospace;
           font-size: 12px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          box-sizing: border-box;
         }
 
         #pdf-toolbar button {
@@ -223,9 +222,7 @@
 
         @media (max-width: 600px) {
           #pdf-toolbar {
-            top: 10px;
-            right: 10px;
-            padding: 4px 6px;
+            padding: 6px 10px;
             font-size: 11px;
           }
           #pdf-toolbar button {
@@ -243,7 +240,7 @@
       </style>
 
       <div id="pdf-viewer-shell">
-        <!-- Floating Minimalist Toolbar (White) -->
+        <!-- Minimalist Toolbar (White) -->
         <div id="pdf-toolbar">
           <button id="pdf-zoom-out" title="Zoom Out">&minus;</button>
           <span id="pdf-zoom-display">100%</span>
