@@ -91,10 +91,11 @@
       <style>
         /* ── PDF Viewer Shell ── */
         #pdf-viewer-shell {
-          width: 100%;
           margin-top: 15px;
           border: 1px solid #000;
           position: relative;
+          display: inline-block; /* shrink to fit content */
+          max-width: 100%;
         }
 
         /* ── Toolbar ── */
@@ -165,12 +166,10 @@
 
         /* ── Scroll Container ── */
         #pdf-viewer-container {
-          width: 100%;
-          height: 80vh; /* overridden by JS to match first page */
           overflow-y: auto;
           overflow-x: auto;
           background-color: #e8e8e8;
-          padding: 6px 0;
+          padding: 0;
           box-sizing: border-box;
           cursor: grab;
         }
@@ -199,15 +198,17 @@
           display: flex;
           flex-direction: column;
           align-items: center;
+          padding: 0;
         }
 
         .pdf-page-wrapper {
           background-color: #fff;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+          box-shadow: none;
           position: relative;
           overflow: hidden;
           line-height: 0;
-          margin-bottom: 6px;
+          margin-bottom: 1px;
+          width: 100% !important;
         }
 
         .pdf-page-wrapper canvas {
@@ -252,10 +253,10 @@
             font-size: 12px;
           }
           #pdf-viewer-container {
-            padding: 4px 0;
+            padding: 0;
           }
           .pdf-page-wrapper {
-            margin-bottom: 4px;
+            margin-bottom: 1px;
           }
         }
       </style>
@@ -311,10 +312,11 @@
           var pageViewports = {};
           var renderQueue = {};
 
-          // Base width = fit-to-width at zoom 1.0
+          var shellEl = document.getElementById('pdf-viewer-shell');
+          var basePageW = 0; // set after first page loads
+
           function getBasePageWidth() {
-            var cw = container.clientWidth - 20;
-            return Math.floor(cw * 0.98);
+            return basePageW || (container.clientWidth - 10);
           }
 
           function getDisplayPageWidth() {
@@ -328,29 +330,29 @@
             pageTotalEl.textContent = totalPages;
             document.getElementById('pdf-viewer-status').style.display = 'none';
 
-            // Calculate initial zoom so first page fits entirely in the viewer
+            // Size the viewer to perfectly frame the first page
             return pdf.getPage(1).then(function(firstPage) {
               var vp = firstPage.getViewport({ scale: 1 });
               var pageAspect = vp.height / vp.width;
 
-              // Set the container height to match the first page proportions
-              var availableWidth = container.clientWidth;
-              var idealHeight = Math.floor(availableWidth * pageAspect);
-              // Cap it so it never exceeds 85vh
+              // Determine the max height we can use (85vh)
               var maxH = Math.floor(window.innerHeight * 0.85);
-              var finalH = Math.min(idealHeight, maxH);
-              container.style.height = finalH + 'px';
+              // The page width that would make the page exactly fit that height
+              var fitW = Math.floor(maxH / pageAspect);
+              // Don't exceed the parent container width
+              var parentW = shellEl.parentElement.clientWidth;
+              basePageW = Math.min(fitW, parentW - 2); // -2 for border
 
-              // Recalculate: does the page fit at zoom 1.0?
-              var baseW = getBasePageWidth();
-              var containerH = finalH - 12; // subtract padding
-              var fittedH = baseW * pageAspect;
+              var pageH = Math.floor(basePageW * pageAspect);
 
-              if (fittedH > containerH) {
-                initialZoom = containerH / fittedH;
-                zoomLevel = initialZoom;
-                zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
-              }
+              // Set shell and container to exact page dimensions
+              shellEl.style.width = (basePageW + 2) + 'px'; // +2 for border
+              container.style.width = basePageW + 'px';
+              container.style.height = pageH + 'px';
+
+              initialZoom = 1.0;
+              zoomLevel = 1.0;
+              zoomDisplay.textContent = '100%';
 
               var promises = [];
               for (var i = 1; i <= totalPages; i++) {
