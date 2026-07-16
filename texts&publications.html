@@ -307,12 +307,13 @@
             return Math.floor(cw * (isMobile ? 1.0 : 0.96));
           }
 
-          // Calculate dimensions for any page, keeping native scale proportions relative to page 1
+          var maxNativeWidth = 0;
+
+          // Calculate dimensions for any page, keeping native scale proportions relative to the widest page
           function getPageDisplayDimensions(pageNum) {
             var nativeVP = pageViewports[pageNum];
-            var refVP = pageViewports[1] || nativeVP; // fallback if page 1 is loading
             var refWidth = getBasePageWidth();
-            var scale = (refWidth / refVP.width) * zoomLevel;
+            var scale = (refWidth / (maxNativeWidth || refWidth)) * zoomLevel;
             return {
               width: Math.floor(nativeVP.width * scale),
               height: Math.floor(nativeVP.height * scale)
@@ -325,35 +326,45 @@
             totalPages = pdf.numPages;
             document.getElementById('pdf-viewer-status').style.display = 'none';
 
-            // Calculate initial zoom so first page fits entirely in the viewer
-            return pdf.getPage(1).then(function (firstPage) {
-              var vp = firstPage.getViewport({ scale: 1 });
-              pageViewports[1] = { width: vp.width, height: vp.height };
-              
-              var baseW = getBasePageWidth();
-              var containerH = container.clientHeight - 40; // subtract padding
-              var pageAspect = vp.height / vp.width;
-              var fittedH = baseW * pageAspect; // height if fit-to-width
-              var isMobile = window.innerWidth <= 600;
-
-              // Only fit vertically on desktop; mobile always starts at fit-to-width (100%)
-              if (!isMobile && fittedH > containerH) {
-                initialZoom = containerH / fittedH;
-                zoomLevel = initialZoom;
-                zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
-              } else {
-                initialZoom = 1.0;
-                zoomLevel = 1.0;
-                zoomDisplay.textContent = '100%';
-              }
-
-              var promises = [];
-              for (var i = 1; i <= totalPages; i++) {
-                promises.push(createPageSlot(pdf, i));
-              }
-              return Promise.all(promises);
-            });
+            // First, fetch all page metadata to get native aspect ratios and find the widest page
+            var promises = [];
+            for (var i = 1; i <= totalPages; i++) {
+              promises.push(pdf.getPage(i).then(function (page) {
+                var vp = page.getViewport({ scale: 1 });
+                pageViewports[page.pageNumber] = { width: vp.width, height: vp.height };
+              }));
+            }
+            return Promise.all(promises);
           }).then(function () {
+            // Find widest page width to use as reference width constraint (prevents horizontal overflow)
+            maxNativeWidth = 0;
+            for (var i = 1; i <= totalPages; i++) {
+              if (pageViewports[i].width > maxNativeWidth) {
+                maxNativeWidth = pageViewports[i].width;
+              }
+            }
+
+            // Calculate initial zoom so first page fits entirely in the viewer
+            var dims = getPageDisplayDimensions(1); // height of first page at zoom 1.0
+            var containerH = container.clientHeight - 40; // subtract padding
+            var isMobile = window.innerWidth <= 600;
+
+            // Only fit vertically on desktop; mobile always starts at fit-to-width (100%)
+            if (!isMobile && dims.height > containerH) {
+              initialZoom = containerH / dims.height;
+              zoomLevel = initialZoom;
+              zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
+            } else {
+              initialZoom = 1.0;
+              zoomLevel = 1.0;
+              zoomDisplay.textContent = '100%';
+            }
+
+            // Create page slots
+            for (var i = 1; i <= totalPages; i++) {
+              createPageSlot(i);
+            }
+
             setupLazyLoading();
             setupDragToPan();
           }).catch(function (error) {
@@ -361,28 +372,23 @@
             pagesInner.innerHTML = '<div style="padding:40px;text-align:center;font-family:monospace;color:#666;">[ Error loading PDF &mdash; <a href="' + PDF_URL + '" target="_blank" style="color:blue;">click here to download</a> ]</div>';
           });
 
-          // ── Create placeholder ──
-          function createPageSlot(pdf, pageNum) {
-            return pdf.getPage(pageNum).then(function (page) {
-              var vp = page.getViewport({ scale: 1 });
-              pageViewports[pageNum] = { width: vp.width, height: vp.height };
+          // ── Create placeholder slot ──
+          function createPageSlot(pageNum) {
+            var dims = getPageDisplayDimensions(pageNum);
 
-              var dims = getPageDisplayDimensions(pageNum);
+            var wrapper = document.createElement('div');
+            wrapper.className = 'pdf-page-wrapper';
+            wrapper.setAttribute('data-page', pageNum);
+            wrapper.style.width = dims.width + 'px';
 
-              var wrapper = document.createElement('div');
-              wrapper.className = 'pdf-page-wrapper';
-              wrapper.setAttribute('data-page', pageNum);
-              wrapper.style.width = dims.width + 'px';
+            var ph = document.createElement('div');
+            ph.className = 'pdf-loading-placeholder';
+            ph.style.width = dims.width + 'px';
+            ph.style.height = dims.height + 'px';
+            ph.innerHTML = '<span>[ page ' + pageNum + ' ]</span>';
+            wrapper.appendChild(ph);
 
-              var ph = document.createElement('div');
-              ph.className = 'pdf-loading-placeholder';
-              ph.style.width = dims.width + 'px';
-              ph.style.height = dims.height + 'px';
-              ph.innerHTML = '<span>[ page ' + pageNum + ' ]</span>';
-              wrapper.appendChild(ph);
-
-              pagesInner.appendChild(wrapper);
-            });
+            pagesInner.appendChild(wrapper);
           }
 
           // ── Lazy loading ──
@@ -405,7 +411,7 @@
             }
           }
 
-          // ── Render one page (sharp at any zoom) ──
+          // ── Render page ──
           function renderPage(pageNum, wrapper) {
             if (renderQueue[pageNum]) return;
             renderQueue[pageNum] = true;
@@ -415,7 +421,7 @@
               var dpr = window.devicePixelRatio || 1;
               var nativeVP = pageViewports[pageNum];
 
-              // Internal render scale = display size * device pixel ratio
+              // Internal scale
               var scale = (dims.width / nativeVP.width) * dpr;
               var viewport = page.getViewport({ scale: scale });
 
@@ -436,7 +442,7 @@
             });
           }
 
-          // ── Re-render all at current zoom ──
+          // ── Re-render all ──
           function rerenderAll() {
             renderQueue = {};
             var wrappers = pagesInner.querySelectorAll('.pdf-page-wrapper');
