@@ -159,7 +159,7 @@
           padding: 20px 0;
           box-sizing: border-box;
           cursor: grab;
-          touch-action: pan-x pan-y;
+          touch-action: none;
           border: 1px solid #ccc;
         }
 
@@ -375,6 +375,7 @@
 
             setupLazyLoading();
             setupDragToPan();
+            setupTouchHandlers();
           }).catch(function (error) {
             console.error('PDF load error:', error);
             pagesInner.innerHTML = '<div style="padding:40px;text-align:center;font-family:monospace;color:#666;">[ Error loading PDF &mdash; <a href="' + PDF_URL + '" target="_blank" style="color:blue;">click here to download</a> ]</div>';
@@ -469,10 +470,26 @@
           }
 
           // ── Zoom controls ──
-          function setZoom(newZoom) {
+          function setZoom(newZoom, focalViewX, focalViewY) {
+            var oldZoom = zoomLevel;
             zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(newZoom * 100) / 100));
             zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
+            if (oldZoom === zoomLevel) return;
+
+            // Default focal point: center of viewport
+            if (focalViewX === undefined) focalViewX = container.clientWidth / 2;
+            if (focalViewY === undefined) focalViewY = container.clientHeight / 2;
+
+            // Content coordinates of focal point before zoom
+            var contentX = container.scrollLeft + focalViewX;
+            var contentY = container.scrollTop + focalViewY;
+            var ratio = zoomLevel / oldZoom;
+
             rerenderAll();
+
+            // Adjust scroll to keep focal point stable
+            container.scrollLeft = contentX * ratio - focalViewX;
+            container.scrollTop = contentY * ratio - focalViewY;
           }
 
           document.getElementById('pdf-zoom-in').addEventListener('click', function () {
@@ -526,7 +543,152 @@
               container.classList.remove('is-dragging');
             });
 
-            // Touch support for mobile is handled natively by the browser's overflow scroll.
+          }
+
+          // ── Touch handlers: pinch-to-zoom & single-finger pan with momentum ──
+          function setupTouchHandlers() {
+            var isPinching = false;
+            var isPanning = false;
+            var initialPinchDist = 0;
+            var pinchStartZoom = 0;
+            var pinchViewX = 0, pinchViewY = 0;
+            var currentPinchScale = 1;
+
+            // Single-finger pan state
+            var lastTouchX = 0, lastTouchY = 0;
+            var velX = 0, velY = 0;
+            var lastMoveTime = 0;
+            var momentumRAF = null;
+
+            function touchDist(a, b) {
+              var dx = a.clientX - b.clientX, dy = a.clientY - b.clientY;
+              return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            // ── Touch Start ──
+            container.addEventListener('touchstart', function (e) {
+              // Cancel any ongoing momentum scroll
+              if (momentumRAF) { cancelAnimationFrame(momentumRAF); momentumRAF = null; }
+
+              if (e.touches.length === 2) {
+                // Begin pinch-to-zoom
+                isPinching = true;
+                isPanning = false;
+                initialPinchDist = touchDist(e.touches[0], e.touches[1]);
+                pinchStartZoom = zoomLevel;
+
+                var rect = container.getBoundingClientRect();
+                pinchViewX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                pinchViewY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+                // Set CSS transform origin to the content point under the pinch midpoint
+                var ox = container.scrollLeft + pinchViewX;
+                var oy = container.scrollTop + pinchViewY;
+                pagesInner.style.transformOrigin = ox + 'px ' + oy + 'px';
+                pagesInner.style.willChange = 'transform';
+                e.preventDefault();
+
+              } else if (e.touches.length === 1 && !isPinching) {
+                // Begin single-finger pan
+                isPanning = true;
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+                velX = 0; velY = 0;
+                lastMoveTime = Date.now();
+              }
+            }, { passive: false });
+
+            // ── Touch Move ──
+            container.addEventListener('touchmove', function (e) {
+              if (isPinching && e.touches.length >= 2) {
+                e.preventDefault();
+                var d = touchDist(e.touches[0], e.touches[1]);
+                var s = d / initialPinchDist;
+                var candidate = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, pinchStartZoom * s));
+
+                // Apply GPU-accelerated CSS transform for smooth visual scaling
+                currentPinchScale = candidate / zoomLevel;
+                pagesInner.style.transform = 'scale(' + currentPinchScale + ')';
+
+              } else if (isPanning && e.touches.length === 1 && !isPinching) {
+                e.preventDefault();
+                var tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+                var dx = lastTouchX - tx, dy = lastTouchY - ty;
+
+                container.scrollLeft += dx;
+                container.scrollTop += dy;
+
+                // Track velocity for momentum
+                var now = Date.now(), dt = now - lastMoveTime;
+                if (dt > 0) {
+                  velX = dx / dt * 16; // normalise to ~60 fps frame
+                  velY = dy / dt * 16;
+                }
+                lastTouchX = tx; lastTouchY = ty;
+                lastMoveTime = now;
+              }
+            }, { passive: false });
+
+            // ── Touch End ──
+            container.addEventListener('touchend', function (e) {
+              if (isPinching && e.touches.length < 2) {
+                // Commit the pinch zoom
+                isPinching = false;
+                var finalZoom = zoomLevel * currentPinchScale;
+
+                // Remove CSS transform
+                pagesInner.style.transform = '';
+                pagesInner.style.transformOrigin = '';
+                pagesInner.style.willChange = '';
+                currentPinchScale = 1;
+
+                // Apply real zoom with focal point preservation
+                setZoom(finalZoom, pinchViewX, pinchViewY);
+
+                // If one finger remains, transition to panning
+                if (e.touches.length === 1) {
+                  isPanning = true;
+                  lastTouchX = e.touches[0].clientX;
+                  lastTouchY = e.touches[0].clientY;
+                  velX = 0; velY = 0;
+                  lastMoveTime = Date.now();
+                }
+              } else if (isPanning && e.touches.length === 0) {
+                isPanning = false;
+                // Apply momentum scrolling if finger was moving
+                if (Math.abs(velX) > 0.5 || Math.abs(velY) > 0.5) {
+                  applyMomentum();
+                }
+              }
+            }, { passive: false });
+
+            // ── Touch Cancel (safety reset) ──
+            container.addEventListener('touchcancel', function () {
+              if (isPinching) {
+                pagesInner.style.transform = '';
+                pagesInner.style.transformOrigin = '';
+                pagesInner.style.willChange = '';
+                currentPinchScale = 1;
+              }
+              isPinching = false;
+              isPanning = false;
+              if (momentumRAF) { cancelAnimationFrame(momentumRAF); momentumRAF = null; }
+            });
+
+            // ── Momentum / inertia scrolling ──
+            function applyMomentum() {
+              var friction = 0.95;
+              function step() {
+                velX *= friction;
+                velY *= friction;
+                container.scrollLeft += velX;
+                container.scrollTop += velY;
+                if (Math.abs(velX) > 0.5 || Math.abs(velY) > 0.5) {
+                  momentumRAF = requestAnimationFrame(step);
+                }
+              }
+              momentumRAF = requestAnimationFrame(step);
+            }
           }
 
           // ── Window resize ──
