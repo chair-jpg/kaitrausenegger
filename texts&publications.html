@@ -468,6 +468,12 @@
                 ph.style.width = dims.width + 'px';
                 ph.style.height = dims.height + 'px';
               }
+              // Also resize existing canvases so layout heights are correct immediately
+              var cv = wrappers[i].querySelector('canvas');
+              if (cv) {
+                cv.style.width = dims.width + 'px';
+                cv.style.height = dims.height + 'px';
+              }
             }
             setupLazyLoading();
           }
@@ -483,16 +489,24 @@
             if (focalViewX === undefined) focalViewX = container.clientWidth / 2;
             if (focalViewY === undefined) focalViewY = container.clientHeight / 2;
 
-            // Content coordinates of focal point before zoom
-            var contentX = container.scrollLeft + focalViewX;
-            var contentY = container.scrollTop + focalViewY;
+            // Compute focal point within pagesInner (the content that actually scales)
+            var pRect = pagesInner.getBoundingClientRect();
+            var cRect = container.getBoundingClientRect();
+            var focalPiX = cRect.left + focalViewX - pRect.left;
+            var focalPiY = cRect.top + focalViewY - pRect.top;
+
+            // Non-scaling offset from container scroll origin to pagesInner top-left
+            // (container padding + border — stays constant across zoom levels)
+            var offsetX = container.scrollLeft + pRect.left - cRect.left;
+            var offsetY = container.scrollTop + pRect.top - cRect.top;
+
             var ratio = zoomLevel / oldZoom;
 
             rerenderAll();
 
-            // Adjust scroll to keep focal point stable
-            container.scrollLeft = contentX * ratio - focalViewX;
-            container.scrollTop = contentY * ratio - focalViewY;
+            // Adjust scroll: the focal point in pagesInner is now at focalPi * ratio
+            container.scrollLeft = offsetX + focalPiX * ratio - focalViewX;
+            container.scrollTop = offsetY + focalPiY * ratio - focalViewY;
           }
 
           document.getElementById('pdf-zoom-in').addEventListener('click', function () {
@@ -584,9 +598,12 @@
                 pinchViewX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
                 pinchViewY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
 
-                // Set CSS transform origin to the content point under the pinch midpoint
-                var ox = container.scrollLeft + pinchViewX;
-                var oy = container.scrollTop + pinchViewY;
+                // Set CSS transform origin relative to pagesInner's own coordinate system
+                var pRect = pagesInner.getBoundingClientRect();
+                var midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                var midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                var ox = midX - pRect.left;
+                var oy = midY - pRect.top;
                 pagesInner.style.transformOrigin = ox + 'px ' + oy + 'px';
                 pagesInner.style.willChange = 'transform';
                 e.preventDefault();
