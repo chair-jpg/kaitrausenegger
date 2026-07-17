@@ -309,7 +309,8 @@
           var ZOOM_MAX = 3.0;
           var totalPages = 0;
           var pageViewports = {};
-          var renderQueue = {};
+          var activeTasks = {}; // pageNum -> { task: renderTask, gen: number }
+          var renderGeneration = 0;
 
           // Base width = fit-to-width at zoom 1.0
           function getBasePageWidth() {
@@ -425,10 +426,26 @@
 
           // ── Render page ──
           function renderPage(pageNum, wrapper) {
-            if (renderQueue[pageNum]) return;
-            renderQueue[pageNum] = true;
+            // If already rendering this page at current generation, do nothing
+            if (activeTasks[pageNum] && activeTasks[pageNum].gen === renderGeneration) {
+              return;
+            }
+
+            // Cancel any in-flight task for this page (from a previous generation or redundant call)
+            if (activeTasks[pageNum] && activeTasks[pageNum].task) {
+              try {
+                activeTasks[pageNum].task.cancel();
+              } catch (e) {}
+              delete activeTasks[pageNum];
+            }
+
+            var currentGen = renderGeneration;
+            activeTasks[pageNum] = { task: null, gen: currentGen };
 
             pdfDocument.getPage(pageNum).then(function (page) {
+              // Ensure we are still in the same generation and task wasn't overwritten
+              if (renderGeneration !== currentGen) return;
+
               var dims = getPageDisplayDimensions(pageNum);
               var dpr = window.devicePixelRatio || 1;
               var nativeVP = pageViewports[pageNum];
@@ -445,18 +462,58 @@
               canvas.style.width = dims.width + 'px';
               canvas.style.height = dims.height + 'px';
 
-              page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
+              var renderTask = page.render({ canvasContext: ctx, viewport: viewport });
+              if (activeTasks[pageNum] && activeTasks[pageNum].gen === currentGen) {
+                activeTasks[pageNum].task = renderTask;
+              }
+
+              renderTask.promise.then(function () {
+                if (renderGeneration !== currentGen) return;
                 wrapper.innerHTML = '';
                 wrapper.style.width = dims.width + 'px';
                 wrapper.appendChild(canvas);
-                delete renderQueue[pageNum];
+                
+                // Only clean up activeTask if it is still the same task/generation
+                if (activeTasks[pageNum] && activeTasks[pageNum].gen === currentGen) {
+                  delete activeTasks[pageNum];
+                }
+              }).catch(function (error) {
+                // If it was cancelled, that's fine. Otherwise, log it and clean up.
+                if (error && error.name === 'RenderingCancelledException') {
+                  return;
+                }
+                console.error('Page render error (page ' + pageNum + '):', error);
+                if (activeTasks[pageNum] && activeTasks[pageNum].gen === currentGen) {
+                  delete activeTasks[pageNum];
+                }
+                // Leave some error indicator in the slot
+                if (wrapper.querySelector('.pdf-loading-placeholder')) {
+                  wrapper.querySelector('.pdf-loading-placeholder').innerHTML = '<span style="color:#d32f2f;">[ Error rendering page ' + pageNum + ' ]</span>';
+                }
               });
+            }).catch(function (error) {
+              console.error('Get page error (page ' + pageNum + '):', error);
+              if (activeTasks[pageNum] && activeTasks[pageNum].gen === currentGen) {
+                delete activeTasks[pageNum];
+              }
+              if (wrapper.querySelector('.pdf-loading-placeholder')) {
+                wrapper.querySelector('.pdf-loading-placeholder').innerHTML = '<span style="color:#d32f2f;">[ Error loading page ' + pageNum + ' ]</span>';
+              }
             });
           }
 
-          // ── Re-render all ──
-          function rerenderAll() {
-            renderQueue = {};
+          // ── Resize pages layout ──
+          function resizeAllPages() {
+            renderGeneration++;
+            for (var pageNum in activeTasks) {
+              if (activeTasks[pageNum] && activeTasks[pageNum].task) {
+                try {
+                  activeTasks[pageNum].task.cancel();
+                } catch (e) {}
+              }
+            }
+            activeTasks = {};
+
             var wrappers = pagesInner.querySelectorAll('.pdf-page-wrapper');
             for (var i = 0; i < wrappers.length; i++) {
               var pn = parseInt(wrappers[i].getAttribute('data-page'));
@@ -468,14 +525,12 @@
                 ph.style.width = dims.width + 'px';
                 ph.style.height = dims.height + 'px';
               }
-              // Also resize existing canvases so layout heights are correct immediately
               var cv = wrappers[i].querySelector('canvas');
               if (cv) {
                 cv.style.width = dims.width + 'px';
                 cv.style.height = dims.height + 'px';
               }
             }
-            setupLazyLoading();
           }
 
           // ── Zoom controls ──
@@ -502,11 +557,13 @@
 
             var ratio = zoomLevel / oldZoom;
 
-            rerenderAll();
+            resizeAllPages();
 
             // Adjust scroll: the focal point in pagesInner is now at focalPi * ratio
             container.scrollLeft = offsetX + focalPiX * ratio - focalViewX;
             container.scrollTop = offsetY + focalPiY * ratio - focalViewY;
+
+            setupLazyLoading();
           }
 
           document.getElementById('pdf-zoom-in').addEventListener('click', function () {
@@ -697,13 +754,27 @@
 
             // ── Momentum / inertia scrolling ──
             function applyMomentum() {
-              var friction = 0.95;
+              var lastTime = Date.now();
               function step() {
-                velX *= friction;
-                velY *= friction;
+                var now = Date.now();
+                var dt = (now - lastTime) / 1000;
+                lastTime = now;
+
+                if (dt > 0.1) dt = 0.1;
+                if (dt <= 0) {
+                  momentumRAF = requestAnimationFrame(step);
+                  return;
+                }
+
+                // 0.95 friction per 16.67ms (60fps frame duration)
+                var frictionFactor = Math.pow(0.95, dt * 60);
+                velX *= frictionFactor;
+                velY *= frictionFactor;
+
                 container.scrollLeft += velX;
                 container.scrollTop += velY;
-                if (Math.abs(velX) > 0.5 || Math.abs(velY) > 0.5) {
+
+                if (Math.abs(velX) > 0.1 || Math.abs(velY) > 0.1) {
                   momentumRAF = requestAnimationFrame(step);
                 }
               }
@@ -715,7 +786,62 @@
           var resizeTimer;
           window.addEventListener('resize', function () {
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function () { rerenderAll(); }, 300);
+            resizeTimer = setTimeout(function () {
+              if (!pdfDocument) return;
+
+              // 1. Re-calculate initialZoom
+              var oldZoom = zoomLevel;
+              var isMobile = window.innerWidth <= 600;
+
+              var firstPageVP = pageViewports[1];
+              var refWidth = container.clientWidth - (isMobile ? 8 : 24);
+              var scaleAtOne = (refWidth / (maxNativeWidth || refWidth));
+              var firstPageHeightAtOne = firstPageVP.height * scaleAtOne;
+              var containerH = container.clientHeight - 40;
+
+              if (!isMobile && firstPageHeightAtOne > containerH) {
+                initialZoom = containerH / firstPageHeightAtOne;
+              } else {
+                initialZoom = 1.0;
+              }
+
+              // Reset zoom to new initialZoom if it matched exactly before (or 100% on mobile)
+              var targetZoom = zoomLevel;
+              if (oldZoom === initialZoom || (isMobile && oldZoom === 1.0)) {
+                targetZoom = initialZoom;
+              }
+
+              // 2. Preserve focal point (center of viewport)
+              var focalViewX = container.clientWidth / 2;
+              var focalViewY = container.clientHeight / 2;
+
+              var pRect = pagesInner.getBoundingClientRect();
+              var cRect = container.getBoundingClientRect();
+
+              // Normalize relative content coordinates within pagesInner (0 to 1)
+              var relX = pRect.width > 0 ? (cRect.left + focalViewX - pRect.left) / pRect.width : 0.5;
+              var relY = pRect.height > 0 ? (cRect.top + focalViewY - pRect.top) / pRect.height : 0.5;
+
+              zoomLevel = targetZoom;
+              zoomDisplay.textContent = Math.round(zoomLevel * 100) + '%';
+
+              // Resize everything
+              resizeAllPages();
+
+              // Get new bounds of pagesInner
+              pRect = pagesInner.getBoundingClientRect();
+              cRect = container.getBoundingClientRect();
+
+              // Calculate new non-scaling offset
+              var offsetX = container.scrollLeft + pRect.left - cRect.left;
+              var offsetY = container.scrollTop + pRect.top - cRect.top;
+
+              // Restore scroll to keep center aligned
+              container.scrollLeft = offsetX + relX * pRect.width - focalViewX;
+              container.scrollTop = offsetY + relY * pRect.height - focalViewY;
+
+              setupLazyLoading();
+            }, 300);
           });
         })();
       </script>
