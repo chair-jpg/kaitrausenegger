@@ -120,43 +120,82 @@
       td,
       tr {
         display: block;
+        width: 100%;
+        text-align: left !important;
       }
 
-      thead tr {
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
+      thead {
+        display: none;
       }
 
       tr {
-        margin-bottom: 20px;
-        padding-bottom: 20px;
-        border-bottom: 1px solid #eee;
+        margin-bottom: 25px;
       }
 
-      tr:last-child {
-        border-bottom: none;
+      .hr-row,
+      .spacer-row {
+        display: none;
       }
 
       td {
+        padding: 0;
         border: none;
-        padding: 0 0 5px 0;
         white-space: normal;
+        color: #000;
+        font-size: 14px;
+        font-weight: normal;
+        line-height: 1.4;
       }
 
       td:first-child {
-        font-weight: bold;
+        margin-bottom: 2px;
+      }
+
+      /* Key-value layout for Last modified, Size, and Description */
+      td:nth-child(2),
+      td:nth-child(3),
+      td:last-child {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        width: 100%;
+      }
+
+      td:not(:first-child)::before {
+        content: attr(data-label);
+        color: #000;
+      }
+
+      /* Hide Description label for the ASCII art row */
+      td:has(.ascii-art)::before {
+        content: none;
+      }
+
+      td:last-child {
+        margin-top: 2px;
+        overflow: hidden;
+        width: 100%;
+      }
+
+      .ascii-art {
+        margin: 30px 0 0 0;
         font-size: 14px;
+        line-height: 1.2;
+        white-space: pre;
+        padding-bottom: 10px;
+        color: #000;
+        display: inline-block;
+        animation: horse-trot 15s linear infinite;
       }
 
-      td:not(:first-child):not(.ascii-cell):not(:last-child)::before {
-        content: attr(data-label) ": ";
-        color: #555;
-        font-weight: normal;
-      }
+      @keyframes horse-trot {
+        0% {
+          transform: translateX(100vw);
+        }
 
-      .hr-row {
-        display: none;
+        100% {
+          transform: translateX(-100%);
+        }
       }
     }
   </style>
@@ -184,21 +223,21 @@
       </tr>
       <tr>
         <td data-label="Name"><span class="type-icon">[DIR]</span> <a href="index.html">_home/</a></td>
-        <td data-label="Date">12.04.2026</td>
+        <td data-label="Last modified">12.04.2026</td>
         <td data-label="Size">-</td>
         <td data-label="Description">ROOT</td>
       </tr>
       <tr>
         <td colspan="4">&nbsp;</td>
       </tr>
-      <tr>
+      <tr class="spacer-row">
         <td colspan="4">&nbsp;</td>
       </tr>
       <tr>
         <td data-label="Name"><span class="type-icon">[PDF]</span> <a
             href="Portfolio_Kai_Philip_Trausenegger_July_2025_small.pdf" target="_blank" rel="noopener noreferrer"
             download>_portfolio_small.pdf</a></td>
-        <td data-label="Date">-</td>
+        <td data-label="Last modified">-</td>
         <td data-label="Size">17M</td>
         <td data-label="Description">
           <pre class="ascii-art">
@@ -229,19 +268,19 @@
       <tr>
         <td data-label="Name"><span class="type-icon">[TXT]</span> <a
             href="texts&publications.html">_texts&publications.html</a></td>
-        <td data-label="Date">-</td>
+        <td data-label="Last modified">-</td>
         <td data-label="Size">6k</td>
         <td data-label="Description">PUBLICATIONS</td>
       </tr>
       <tr>
         <td data-label="Name"><span class="type-icon">[TXT]</span> <a href="cv.html">_cv.html</a></td>
-        <td data-label="Date">-</td>
+        <td data-label="Last modified">-</td>
         <td data-label="Size">7k</td>
         <td data-label="Description">CV</td>
       </tr>
       <tr>
         <td data-label="Name"><span class="type-icon">[TXT]</span> <a href="contact.html">_contact.html</a></td>
-        <td data-label="Date">-</td>
+        <td data-label="Last modified">-</td>
         <td data-label="Size">2k</td>
         <td data-label="Description">CONTACT</td>
       </tr>
